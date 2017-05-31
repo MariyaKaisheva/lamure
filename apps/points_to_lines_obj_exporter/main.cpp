@@ -85,12 +85,11 @@ float dot(lamure::vec3f const& vec_A, lamure::vec3f const& vec_B) {
   return product;
 }
 
-std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data){
+std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsigned long number_line_loops){
     
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    unsigned long number_line_loops = 20; //TODO make number dependent on model size
     float threshold = 0.002; //TODO think of alternative for dynamic calculation of thershold value
     std::vector< std::vector <xyzall_surfel_t>> bins; 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
@@ -185,8 +184,12 @@ int main(int argc, char *argv[]) {
     else{
       depth = bvh->get_depth();
     }
-
-    std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_l" + std::to_string(depth) + ".obj";
+    unsigned long number_line_loops = 20; //TODO make number dependent on model size??
+    if(argc > 3){
+     number_line_loops = atoi(argv[3]); //user input
+    }
+    
+    std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".obj";
     std::cout << "input: " << bvh_filename << std::endl;
     std::cout << "output: " << obj_filename << std::endl;
    
@@ -199,12 +202,6 @@ int main(int argc, char *argv[]) {
     std::cout << "working with surfels at depth " << depth << std::endl;
     lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
 
-    std::ofstream out_stream;
-    out_stream.open(obj_filename, std::ios::out | std::ios::trunc); // Any current content is discarded
-    out_stream.close();
-
-    //uint64_t num_surfels_excluded = 0;
-
     auto total_num_surfels = num_leafs*bvh->get_primitives_per_node();
     std::vector<xyzall_surfel_t> surfels_vector(total_num_surfels);
 
@@ -212,56 +209,34 @@ int main(int argc, char *argv[]) {
     auto length_in_bytes = num_leafs * size_of_node;
     in_access->read((char*) &surfels_vector[0], num_offset_nodes * size_of_node, length_in_bytes);
   
-    //std::ios::openmode mode = std::ios::out | std::ios::app;
-    //out_stream.open(obj_filename, mode);
-
-    //std::string filestr;
-    //std::stringstream ss(filestr);
-    
+  
     //clean data from degenerated padding surfels
     surfels_vector.erase(std::remove_if(surfels_vector.begin(), 
                                         surfels_vector.end(),
                                         [](xyzall_surfel_t s){return s.radius_ <= 0.0;}),
                          surfels_vector.end());
 
-    /*for (unsigned int i = 0; i < surfels_vector.size() ; ++i) {
-
-        xyzall_surfel_t const& s = surfels_vector.at(i); 
-        
-        if(s.radius_ <= 0.0f){
-          ++num_surfels_excluded;
-          continue;
-        } 
-        ss << "v " <<  s.x_ << " " << s.y_ << " " << s.z_ << "\n"; //TODO << std::setprecision(DEFAULT_PRECISION)
-    }*/
-
-    auto line_data = generate_lines(surfels_vector);
+    auto line_data = generate_lines(surfels_vector, number_line_loops);
 
     std::ofstream output_file(obj_filename);
- 
     unsigned long vert_counter = 1;
-    //uint i = 0;
 
     if (output_file.is_open()){
-        std::cout << "ok \n";
         for (uint i = 0; i < line_data.size(); ++i){
-        //while(i < line_data.size()){
          output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).start.x_ << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.y_ << " " << std::setprecision(DEFAULT_PRECISION)<< line_data.at(i).start.z_ << "\n";
          output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.x_ << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.y_ << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.z_ << "\n";
          //vertex duplication to emulate triangle
          output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.x_ << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.y_ << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.z_ << "\n";
          output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
          vert_counter += 3;
-         //i += 250;
         }
         output_file.close();
     }
     else{
       std::cout << "Cannot open output file to write to! \n";
     }
-    //out_stream << std::setprecision(DEFAULT_PRECISION) << ss.rdbuf();
-    //out_stream.close();
-    //std::cout << "done. (" << num_surfels_excluded << " surfels out of " << surfels_vector.size()<< " excluded)" << std::endl;
+   
+    std::cout << "ok \n";
 
     delete in_access;
     delete bvh;
