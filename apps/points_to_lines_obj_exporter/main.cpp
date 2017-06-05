@@ -123,15 +123,20 @@ float dot(lamure::vec3f const& vec_A, lamure::vec3f const& vec_B) {
 }
 
 float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
-  float result = sqrt((pos1.x - pos1.x) * (pos1.x - pos1.x) + 
-                      (pos1.y - pos1.y) * (pos1.y - pos1.y) + 
-                      (pos1.z - pos1.z) * (pos1.z - pos1.z));
+
+  lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z) );
+  float result = sqrt(distance_vector.x*distance_vector.x +
+                      distance_vector.y*distance_vector.y +
+                      distance_vector.z*distance_vector.z);
   return result;
 }
 
 std::pair<float, point> find_nearest_neighbour (point const& start_point, std::vector<point> const& all_points) {
   float current_min = std::numeric_limits<float>::max();
   point current_nearest_neighbour;
+
+  bool is_valid = false;
+
   for (auto& p : all_points){
     if((!p.is_used_)){
       float distance = compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
@@ -139,9 +144,16 @@ std::pair<float, point> find_nearest_neighbour (point const& start_point, std::v
       if( distance > 0.0 && distance <= current_min ){
         current_min = distance;
         current_nearest_neighbour = p;
+
+        is_valid = true;
       }
     }
   }
+/*
+  if( !is_valid ) {
+    current_min = std::numeric_limits<float>::max();
+  }
+*/
   std::pair<float, point> result(current_min, current_nearest_neighbour);
   return result;
 }
@@ -158,8 +170,10 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
   auto centroid = compute_average_position_per_layer(all_surfels_per_layer);
   std::vector<point> point_cluster;
   std::vector<clusters_t> clusters_vector;
-  float distance_threshold = 2.8; 
-  float last_measured_distance = 1.0;  //TODO think about this value
+  float distance_threshold = 5; 
+  
+  float last_measured_distance = 0;  //TODO think about this value
+
   int cluster_counter  = 0; 
   //distribute points to clusters based on distance to closest available neigbour point
   for(uint i= 0; i < all_points_per_layer.size(); ++i){
@@ -169,17 +183,18 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
         current_point->is_used_ = true;
 
         //current cluster contains only 1 point; no prvious distance recorded yet
-        if(point_cluster.size() == 1){
-          float distance_to_centroid = compute_distance(lamure::vec3f(current_point->pos_coordinates_[0], current_point->pos_coordinates_[1], current_point->pos_coordinates_[2]), centroid);
-          last_measured_distance = distance_to_centroid; 
+        if(point_cluster.size() < 2){
+          //float distance_to_centroid = compute_distance(lamure::vec3f(current_point->pos_coordinates_[0], current_point->pos_coordinates_[1], current_point->pos_coordinates_[2]), centroid);
+          last_measured_distance = std::numeric_limits<float>::max() / (2.0 * distance_threshold); 
         }
         
         auto search_result =  find_nearest_neighbour(*current_point, all_points_per_layer);
+        std::cout << search_result.first << "\n";
         auto distance_to_nearest_unused_point = search_result.first; 
         auto next_point = search_result.second; //function find_nearest_neighbour() makes sure next point is not used so far
         
         
-        if(distance_to_nearest_unused_point >= (last_measured_distance * distance_threshold)){  
+        if(distance_to_nearest_unused_point <= (last_measured_distance * distance_threshold)){  
           point_cluster.push_back(next_point);
           last_measured_distance  = distance_to_nearest_unused_point; 
           //next_point.is_used_ = true;
@@ -188,7 +203,7 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
           //push current cluster to common container and start a new
           next_point.is_used_ = false; 
           clusters_vector.push_back(point_cluster);
-          ++ cluster_counter; 
+          cluster_counter; 
           point_cluster.clear();
         }
     }
@@ -297,10 +312,10 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
         std::cout << "all_clsters_per_bin_vector.size(): " <<  all_clsters_per_bin_vector.size() << " \n";
         line current_line; 
-        if(all_clsters_per_bin_vector.size() > 1){
+        if(all_clsters_per_bin_vector.size() > 0){
 
           for(auto& current_cluster : all_clsters_per_bin_vector){
-            if(current_cluster.size() > 2) {
+            if(current_cluster.size() > 1) {
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
               lamure::vec3f centroid_pos = compute_cluster_centroid_position(current_cluster);
               auto angle_sorting_lambda = [&](point const& surfel_A,
@@ -330,7 +345,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
                                                     }
                                               };
 
-              std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
+              //std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
               for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
                 current_line.start = current_cluster.at(j);
                 current_line.end = current_cluster.at(j+1);
