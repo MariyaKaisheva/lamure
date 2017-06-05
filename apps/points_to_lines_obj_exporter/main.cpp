@@ -46,19 +46,16 @@ struct xyzall_surfel_t {
 };
 
 struct point{
-point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), neighbour_id_(-1), is_used_(false) {}
-point(float* pos, int32_t id, int32_t neighbour_id,  bool is_used ) : 
+point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), is_used_(false) {}
+point(float* pos, int32_t id, bool is_used ) : 
                           pos_coordinates_{pos[0], pos[1], pos[2]},
                           id_(id),
-                          neighbour_id_(neighbour_id),
                           is_used_(is_used) {}
 float pos_coordinates_[3];
 int32_t id_;
-int32_t neighbour_id_;
 bool is_used_;
 };
 
-//std::vector<point> my_vec(10000, point({0.0,0.0,0.0}, -1, false));
 using bins_t = std::vector<xyzall_surfel_t>;
 using clusters_t = std::vector<point>;
 struct line{
@@ -145,7 +142,7 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
   std::vector<point> all_points_per_layer;
   int32_t id_counter = 0; 
   for (auto& s: all_surfels_per_layer){
-    point current_point(s.pos_coordinates, id_counter, -1, false);
+    point current_point(s.pos_coordinates, id_counter, false);
     all_points_per_layer.push_back(current_point);
     ++ id_counter;
   }
@@ -153,7 +150,7 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
   //auto centroid = compute_average_position_per_layer(all_surfels_per_layer);
   std::vector<point> point_cluster;
   std::vector<clusters_t> clusters_vector;
-  float distance_threshold = 8.4; 
+  float distance_threshold = 10.0; 
   
   float last_measured_distance = 0;  //TODO think about this value
 
@@ -161,7 +158,6 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
 
   //distribute points to clusters based on distance to closest available neigbour point
   for(uint point_iterator = 0; point_iterator < all_points_per_layer.size(); ++point_iterator){
-    //if(point_iterator >= 0 && point_iterator < all_points_per_layer.size()){
       int point_index = point_iterator;
       bool next_point_is_used = false;
       do {
@@ -183,27 +179,19 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
             if(distance_to_nearest_unused_point <= (last_measured_distance * distance_threshold)){  
               point_cluster.push_back(next_point);
               last_measured_distance  = distance_to_nearest_unused_point; 
-              current_point->neighbour_id_ = next_point.id_;
               point_index = next_point.id_;
             }
             else{
               //push current cluster to common container and start a new
-              //next_point.is_used_ = false; 
               clusters_vector.push_back(point_cluster);
               ++cluster_counter; 
               point_cluster.clear();
             }
-
             next_point_is_used = next_point.is_used_;
         } else {
           break;
         }
       } while(!next_point_is_used);
-/*    }
-    else{
-      std::cout << "Invalid point_index";
-    }
-*/
   }  
 
   std::cout << cluster_counter << std::endl;
@@ -215,7 +203,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.002; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.02; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
     std::vector<line> line_data;
@@ -235,9 +223,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         for (auto& surfel : current_bin_of_surfels) {
           surfel.pos_coordinates[1] = current_y_mean; //project all surfels for a given y_mean value to a single plane
         }
-        //std::sort(current_bin_of_surfels.begin(), current_bin_of_surfels.end(), comparator_x_dim);
+  
         auto all_clsters_per_bin_vector = create_clusters(current_bin_of_surfels);
-
         std::cout << "all_clsters_per_bin_vector.size(): " <<  all_clsters_per_bin_vector.size() << " \n";
         line current_line; 
         if(all_clsters_per_bin_vector.size() > 0){
@@ -245,35 +232,6 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           for(auto& current_cluster : all_clsters_per_bin_vector){
             if(current_cluster.size() > 1) {
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
-              lamure::vec3f centroid_pos = compute_cluster_centroid_position(current_cluster);
-              auto angle_sorting_lambda = [&](point const& surfel_A,
-                                              point const& surfel_B){
-                                                   // std::cout << "Sorting, sorting cluster\n";
-                                                    lamure::vec3f surfel_position_A (surfel_A.pos_coordinates_[0], surfel_A.pos_coordinates_[1], surfel_A.pos_coordinates_[2]);
-                                                    lamure::vec3f surfel_position_B (surfel_B.pos_coordinates_[0], surfel_B.pos_coordinates_[1], surfel_B.pos_coordinates_[2]);
-                                                    lamure::vec3f centroid_surfel_vec_A = normalize(surfel_position_A - centroid_pos);
-                                                    lamure::vec3f centroid_surfel_vec_B = normalize(surfel_position_B - centroid_pos);
-                                                    auto plane_rotation_angle_A = dot(centroid_surfel_vec_A, direction_ref_vector);
-                                                    auto plane_rotation_angle_B = dot(centroid_surfel_vec_B, direction_ref_vector);
-                                                    //both vectors are in the lower half of the unit cirle => 
-                                                    //sort in descending order of angle b/n centroid_serfel_vector and reference vector
-                                                    if((surfel_position_A.z <= centroid_pos.z) && (surfel_position_B.z <= centroid_pos.z)){
-                                                      return plane_rotation_angle_A >= plane_rotation_angle_B; 
-                                                    }
-                                                    //both vectors are in the upper half of the unit cirle => 
-                                                    //sort in ascending order of angle b/n centroid_serfel_vector and reference vector
-                                                    else if((surfel_position_A.z >= centroid_pos.z) && (surfel_position_B.z >= centroid_pos.z)) {
-
-                                                      return plane_rotation_angle_A <= plane_rotation_angle_B;
-                                                    } 
-                                                    //vectors are in opposite halfs of the unit cirle => 
-                                                    //sort in descending order of z coordinate
-                                                    else {
-                                                      return surfel_position_A.z <= surfel_position_B.z;
-                                                    }
-                                              };
-
-              //std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
               for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
                 current_line.start = current_cluster.at(j);
                 current_line.end = current_cluster.at(j+1);
@@ -287,7 +245,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         }
 
     }   
-    std::cout << "num Limes (should be >= num layers??) " << line_data.size() << std::endl; 
+    std::cout << "num Lines (should be >= num layers??) " << line_data.size() << std::endl; 
     return line_data;   
 }
 int main(int argc, char *argv[]) {
