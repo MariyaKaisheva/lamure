@@ -24,6 +24,8 @@
 
 
 #define DEFAULT_PRECISION 15
+#define OUTPUT_OBJ 0
+#define BIDIRECTIONAL 1
 
 /*char* get_cmd_option(char** begin, char** end, const std::string & option) {
     char** it = std::find(begin, end, option);
@@ -308,9 +310,14 @@ int main(int argc, char *argv[]) {
     }
     
     std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".obj";
+    std::string xyz_all_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".xyz_all";
     std::cout << "input: " << bvh_filename << std::endl;
+    #if OUTPUT_OBJ
     std::cout << "output: " << obj_filename << std::endl;
-   
+    #else
+    std::cout << "output: " << xyz_all_filename << std::endl;
+    #endif
+
     std::string lod_filename = bvh_filename.substr(0, bvh_filename.size()-3) + "lod";
     lamure::ren::lod_stream* in_access = new lamure::ren::lod_stream();
     in_access->open(lod_filename);
@@ -343,6 +350,7 @@ int main(int argc, char *argv[]) {
                                    [&](line l){return l.length >= 7.4 * avg_line_lenght;}),
                     line_data.end());
     std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
+    #if OUTPUT_OBJ
     std::ofstream output_file(obj_filename);
     unsigned long vert_counter = 1;
 
@@ -363,6 +371,43 @@ int main(int argc, char *argv[]) {
     else{
       std::cout << "Cannot open output file to write to! \n";
     }
+    #else
+    std::ofstream output_file(xyz_all_filename);
+    lamure::vec3f const fixed_upward_normal(0.0, 1.0, 0.0);
+    lamure::vec3f const fixed_forward_normal(0.0, 0.0, 1.0);
+    float const fixed_radius(0.03);
+    if (output_file.is_open()){
+        for (uint i = 0; i < line_data.size(); ++i){
+         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[0] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[2] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
+         output_file << 180 << " ";
+         output_file << 30 << " ";
+         output_file << 120 << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
+         #if BIDIRECTIONAL
+         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[0] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[2] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.x << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.y << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.z << " ";
+         output_file << 120 << " ";
+         output_file << 30 << " ";
+         output_file << 180 << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
+         #endif
+        }
+      
+        output_file.close();
+    }
+    else{
+      std::cout << "Cannot open output file to write to! \n";
+    }
+    #endif
    
     std::cout << "ok \n";
 
