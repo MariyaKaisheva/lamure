@@ -56,12 +56,15 @@ int32_t id_;
 bool is_used_;
 };
 
-using bins_t = std::vector<xyzall_surfel_t>;
-using clusters_t = std::vector<point>;
 struct line{
     point start;
     point end;
+    float length;
 };
+
+using bins_t = std::vector<xyzall_surfel_t>;
+using clusters_t = std::vector<point>;
+//using line_data_t = std::vector<line>;
 
 //sort in descending order based on y coordinate value 
 bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
@@ -82,7 +85,7 @@ lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point
   average_y /= number_of_surfels_per_layer;
   average_z /= number_of_surfels_per_layer;
   lamure::vec3f average_position(average_x, average_y, average_z);
-  std::cout << "centroid_pos: " << average_position << std::endl;
+  //std::cout << "centroid_pos: " << average_position << std::endl;
   return average_position;
 }
 
@@ -107,6 +110,20 @@ float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
                       distance_vector.y*distance_vector.y +
                       distance_vector.z*distance_vector.z);
   return result;
+}
+
+float compute_global_average_line_length(std::vector<line> const& all_lines) {
+  float avg_line_lenght = 0.0; 
+  if(all_lines.size() > 1){
+    for (auto const& line : all_lines){
+      avg_line_lenght += line.length; 
+    }
+    return avg_line_lenght/all_lines.size();     
+  }
+  else{
+    std::cout << "Total num lines < 1 \n"; 
+    return avg_line_lenght; 
+  }
 }
 
 std::pair<float, point> find_nearest_neighbour (point const& start_point, std::vector<point> const& all_points) {
@@ -150,16 +167,16 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
   //auto centroid = compute_average_position_per_layer(all_surfels_per_layer);
   std::vector<point> point_cluster;
   std::vector<clusters_t> clusters_vector;
-  float distance_threshold = 10.0; 
+  float distance_threshold = 60.0; 
   
   float last_measured_distance = 0;  //TODO think about this value
 
-  int cluster_counter  = 0; 
+  //int cluster_counter  = 0; 
 
   //distribute points to clusters based on distance to closest available neigbour point
   for(uint point_iterator = 0; point_iterator < all_points_per_layer.size(); ++point_iterator){
       int point_index = point_iterator;
-      bool next_point_is_used = false;
+     // bool next_point_is_used = false;
       do {
         point* current_point = &all_points_per_layer[point_index];
         if(!current_point->is_used_){
@@ -178,23 +195,25 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
             
             if(distance_to_nearest_unused_point <= (last_measured_distance * distance_threshold)){  
               point_cluster.push_back(next_point);
+             // next_point.is_used_ = true;
               last_measured_distance  = distance_to_nearest_unused_point; 
               point_index = next_point.id_;
             }
             else{
+             // next_point.is_used_ = false;
               //push current cluster to common container and start a new
               clusters_vector.push_back(point_cluster);
-              ++cluster_counter; 
+             // ++cluster_counter; 
               point_cluster.clear();
             }
-            next_point_is_used = next_point.is_used_;
+            //next_point_is_used = next_point.is_used_;
         } else {
           break;
         }
-      } while(!next_point_is_used);
+      } while(true); //!next_point_is_used is always true 
   }  
 
-  std::cout << cluster_counter << std::endl;
+  //std::cout << cluster_counter << std::endl;
   return clusters_vector; 
 }
 
@@ -203,12 +222,13 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.02; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.002; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
     std::vector<line> line_data;
     unsigned long counter = 0; 
     unsigned long offset = floor(input_data.size() / number_line_loops);
+    int total_num_clusters = 0;
     for(uint i = 0; i < number_line_loops; ++i) {
         float current_y_min = input_data.at(counter).pos_coordinates[1];
         float current_y_max = input_data.at(counter + offset).pos_coordinates[1];
@@ -227,16 +247,20 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         auto all_clsters_per_bin_vector = create_clusters(current_bin_of_surfels);
         std::cout << "all_clsters_per_bin_vector.size(): " <<  all_clsters_per_bin_vector.size() << " \n";
         line current_line; 
+
         if(all_clsters_per_bin_vector.size() > 0){
 
           for(auto& current_cluster : all_clsters_per_bin_vector){
-            if(current_cluster.size() > 1) {
+            if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
               for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
                 current_line.start = current_cluster.at(j);
                 current_line.end = current_cluster.at(j+1);
+                current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
+                                                        lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
                 line_data.push_back(current_line);
               }
+              ++total_num_clusters;
             }
           }
         }
@@ -245,7 +269,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         }
 
     }   
-    std::cout << "num Lines (should be >= num layers??) " << line_data.size() << std::endl; 
+    //std::cout << "num Lines: " << line_data.size() << std::endl;
+    std::cout << "num line loops: " << total_num_clusters << std::endl;
     return line_data;   
 }
 int main(int argc, char *argv[]) {
@@ -310,7 +335,14 @@ int main(int argc, char *argv[]) {
                          surfels_vector.end());
 
     auto line_data = generate_lines(surfels_vector, number_line_loops);
-
+    auto avg_line_lenght = compute_global_average_line_length(line_data); 
+     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
+    //clean data
+    line_data.erase(std::remove_if(line_data.begin(),
+                                   line_data.end(),
+                                   [&](line l){return l.length >= 7.4 * avg_line_lenght;}),
+                    line_data.end());
+    std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
     std::ofstream output_file(obj_filename);
     unsigned long vert_counter = 1;
 
