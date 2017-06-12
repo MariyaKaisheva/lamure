@@ -14,7 +14,6 @@
 #include <memory>
 #include <limits>
 
-
 #include <lamure/ren/model_database.h>
 #include <lamure/bounding_box.h>
 #include <lamure/types.h>
@@ -22,10 +21,11 @@
 #include <lamure/ren/bvh.h>
 #include <lamure/ren/lod_stream.h>
 
+#include <alglib/cpp/src/interpolation.h>
 
 #define DEFAULT_PRECISION 15
-#define OUTPUT_OBJ 0
-#define BIDIRECTIONAL 1
+#define OUTPUT_OBJ 1
+#define BIDIRECTIONAL 0
 
 /*char* get_cmd_option(char** begin, char** end, const std::string & option) {
     char** it = std::find(begin, end, option);
@@ -48,13 +48,17 @@ struct xyzall_surfel_t {
 };
 
 struct point{
-point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), is_used_(false) {}
-point(float* pos, int32_t id, bool is_used ) : 
+point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), r_(0), g_(150), b_(50), is_used_(false) {}
+point(float* pos, int32_t id, uint8_t red, uint8_t green, uint8_t blue, bool is_used ) : 
                           pos_coordinates_{pos[0], pos[1], pos[2]},
                           id_(id),
+                          r_(red),
+                          g_(green),
+                          b_(blue),
                           is_used_(is_used) {}
 float pos_coordinates_[3];
 int32_t id_;
+uint8_t r_, g_, b_;
 bool is_used_;
 };
 
@@ -161,9 +165,9 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
   std::vector<point> all_points_per_layer;
   int32_t id_counter = 0; 
   for (auto& s: all_surfels_per_layer){
-    point current_point(s.pos_coordinates, id_counter, false);
+    point current_point(s.pos_coordinates, id_counter, s.r_, s.g_, s.b_, false);
     all_points_per_layer.push_back(current_point);
-    ++ id_counter;
+    ++id_counter;
   }
 
   //auto centroid = compute_average_position_per_layer(all_surfels_per_layer);
@@ -224,7 +228,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.002; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.0002; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
     std::vector<line> line_data;
@@ -285,6 +289,33 @@ int main(int argc, char *argv[]) {
       return 0;
     }
 
+    alglib::real_1d_array    point_x_coords;
+    alglib::real_1d_array    point_y_coords;
+
+    alglib::real_1d_array    point_weights; //usually all=1
+    alglib::real_1d_array    point_x_coord_constraints;
+    alglib::real_1d_array    point_y_coord_constraints;
+    alglib::integer_1d_array point_constraint_types; //0 for C^0 Constraints; 1 for C^1 Constraints.
+ 
+    alglib::ae_int_t         number_of_poly_degree_plus_1 = 1; //--> 1: linear func, 2: quadratic, etc.
+    alglib::ae_int_t         error_info;
+    alglib::barycentricinterpolant bary_interp; //needs to be converted with the alglib::PolynomialBar2Pow() function to be in standard form
+    alglib::polynomialfitreport fit_report; //contains: RMSError, AvgError, AvgRelError and MaxError
+
+
+    std::vector<double> point_x_coords_as_vec(10, 0.0);
+    //assign point coord-component to alglib array
+    point_x_coords.setcontent(point_x_coords_as_vec.size(), (double*)&point_x_coords_as_vec[0]);
+
+    alglib::polynomialfitwc(point_x_coords, point_y_coords, 
+                            point_weights, point_x_coord_constraints, point_y_coord_constraints, point_constraint_types,
+                            number_of_poly_degree_plus_1, error_info, bary_interp, fit_report);
+
+    //cast barycentric interpolant to coefficients for x^0 ... x^(n-1))
+    alglib::real_1d_array fit_coefficients;
+    alglib::polynomialbar2pow(bary_interp, fit_coefficients);
+
+
    // std::string bvh_filename = std::string(get_cmd_option(argv, argv + argc, "-f"));
     std::string bvh_filename = argv[1];
     std::string ext = bvh_filename.substr(bvh_filename.size()-3);
@@ -324,7 +355,7 @@ int main(int argc, char *argv[]) {
 
     size_t size_of_node = (uint64_t)bvh->get_primitives_per_node() * sizeof(lamure::ren::dataset::serialized_surfel);
 
-    std::cout << "working with surfels at depth " << depth << std::endl;
+    std::cout << "working with surfels at depth " << depth << "; Max depth for this moidel is "<<  bvh->get_depth() <<std::endl;
     lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
 
     auto total_num_surfels = num_leafs*bvh->get_primitives_per_node();
@@ -372,34 +403,44 @@ int main(int argc, char *argv[]) {
       std::cout << "Cannot open output file to write to! \n";
     }
     #else
+
+    //consider hidden translation
+    const scm::math::vec3f& translation = bvh->get_translation();
     std::ofstream output_file(xyz_all_filename);
     lamure::vec3f const fixed_upward_normal(0.0, 1.0, 0.0);
     lamure::vec3f const fixed_forward_normal(0.0, 0.0, 1.0);
-    float const fixed_radius(0.03);
+    float const fixed_radius(0.02);
     if (output_file.is_open()){
         for (uint i = 0; i < line_data.size(); ++i){
-         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[0] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[2] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
-         output_file << 180 << " ";
-         output_file << 30 << " ";
-         output_file << 120 << " ";
+         output_file << 80 << " ";
+         output_file << 190 << " ";
+         output_file << 230 << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
          #if BIDIRECTIONAL
-         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[0] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[2] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
+         output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.x << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.y << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.z << " ";
-         output_file << 120 << " ";
+         /*output_file << line_data.at(i).start.r_ << " ";
+         output_file << line_data.at(i).start.g_ << " ";
+         output_file << line_data.at(i).start.b_ << " ";*/
          output_file << 30 << " ";
-         output_file << 180 << " ";
+         output_file << 150 << " ";
+         output_file << 100 << " ";
          output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
          #endif
+
+         /*std::cout << "Red: "<< line_data.at(i).start.r_ << std::endl;
+         std::cout << "Green: "<< line_data.at(i).start.g_ << std::endl;
+         std::cout << "Blue: "<< line_data.at(i).start.b_ << std::endl;*/
         }
       
         output_file.close();
