@@ -21,18 +21,20 @@
 #include <lamure/ren/bvh.h>
 #include <lamure/ren/lod_stream.h>
 
-#include <alglib/cpp/src/interpolation.h>
+#include "math_wrapper.h"
 
 #define DEFAULT_PRECISION 15
 #define OUTPUT_OBJ 1
 #define BIDIRECTIONAL 0
 
-/*char* get_cmd_option(char** begin, char** end, const std::string & option) {
+class constrained_polyfit;
+
+char* get_cmd_option(char** begin, char** end, const std::string & option) {
     char** it = std::find(begin, end, option);
     if (it != end && ++it != end)
         return *it;
     return 0;
-}*/
+}
 
 bool cmd_option_exists(char** begin, char** end, const std::string& option) {
     return std::find(begin, end, option) != end;
@@ -281,43 +283,21 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 }
 int main(int argc, char *argv[]) {
     
-    if (argc == 1 ) {
+    if (argc == 1 || cmd_option_exists(argv, argv+argc, "-h") ||
+        !cmd_option_exists(argv, argv+argc, "-f")) {
         
-      std::cout << "Usage: " << argv[0] << "<flags> -f <input_file>" << std::endl <<
-         "\t-f: selects .bvh input file" << std::endl <<
+      std::cout << "Usage: " << argv[0] << " -f <input_file>" << std::endl <<
+         "Parameters: " << std::endl <<
+         "\t-f: specify .bvh input file" << std::endl <<
+         "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
+         "\t-l: (optional) specify number of slycing layers; default value is 20" << std::endl <<
+         "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl <<
          std::endl;
       return 0;
     }
 
-    alglib::real_1d_array    point_x_coords;
-    alglib::real_1d_array    point_y_coords;
 
-    alglib::real_1d_array    point_weights; //usually all=1
-    alglib::real_1d_array    point_x_coord_constraints;
-    alglib::real_1d_array    point_y_coord_constraints;
-    alglib::integer_1d_array point_constraint_types; //0 for C^0 Constraints; 1 for C^1 Constraints.
- 
-    alglib::ae_int_t         number_of_poly_degree_plus_1 = 1; //--> 1: linear func, 2: quadratic, etc.
-    alglib::ae_int_t         error_info;
-    alglib::barycentricinterpolant bary_interp; //needs to be converted with the alglib::PolynomialBar2Pow() function to be in standard form
-    alglib::polynomialfitreport fit_report; //contains: RMSError, AvgError, AvgRelError and MaxError
-
-
-    std::vector<double> point_x_coords_as_vec(10, 0.0);
-    //assign point coord-component to alglib array
-    point_x_coords.setcontent(point_x_coords_as_vec.size(), (double*)&point_x_coords_as_vec[0]);
-
-    alglib::polynomialfitwc(point_x_coords, point_y_coords, 
-                            point_weights, point_x_coord_constraints, point_y_coord_constraints, point_constraint_types,
-                            number_of_poly_degree_plus_1, error_info, bary_interp, fit_report);
-
-    //cast barycentric interpolant to coefficients for x^0 ... x^(n-1))
-    alglib::real_1d_array fit_coefficients;
-    alglib::polynomialbar2pow(bary_interp, fit_coefficients);
-
-
-   // std::string bvh_filename = std::string(get_cmd_option(argv, argv + argc, "-f"));
-    std::string bvh_filename = argv[1];
+    std::string bvh_filename = std::string(get_cmd_option(argv, argv + argc, "-f"));
     std::string ext = bvh_filename.substr(bvh_filename.size()-3);
     if (ext.compare("bvh") != 0) {
         std::cout << "please specify a .bvh file as input" << std::endl;
@@ -326,8 +306,8 @@ int main(int argc, char *argv[]) {
 
     lamure::ren::bvh* bvh = new lamure::ren::bvh(bvh_filename);
     int32_t depth = -1;
-    if(argc > 2){
-      depth = atoi(argv[2]);
+    if(cmd_option_exists(argv, argv+argc, "-d")){
+      depth = atoi(get_cmd_option(argv, argv+argc, "-d"));
       if(depth > int(bvh->get_depth()) || depth < 0){
         depth = bvh->get_depth();
       }
@@ -335,9 +315,10 @@ int main(int argc, char *argv[]) {
     else{
       depth = bvh->get_depth();
     }
+
     unsigned long number_line_loops = 20; //TODO make number dependent on model size??
-    if(argc > 3){
-     number_line_loops = atoi(argv[3]); //user input
+    if(cmd_option_exists(argv, argv+argc, "-l")){
+     number_line_loops = atoi(get_cmd_option(argv, argv+argc, "-l")); //user input
     }
     
     std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".obj";
@@ -357,6 +338,20 @@ int main(int argc, char *argv[]) {
 
     std::cout << "working with surfels at depth " << depth << "; Max depth for this moidel is "<<  bvh->get_depth() <<std::endl;
     lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
+
+    //TEST plynomial fitting 
+    std::vector<std::pair<double, double>> point_coordinates; 
+    for (int i = 0; i < 20; ++i) {
+      std::pair<double, double> current_coord_pair = std::make_pair (double(i),double(i));
+      point_coordinates.push_back(current_coord_pair);
+    }
+
+    auto polynomial_coeficients = math::fit_polynomial(point_coordinates, 2);
+    std::cout << polynomial_coeficients.at(0) << " + " << polynomial_coeficients.at(1) << "x + " << polynomial_coeficients.at(2) << "x^2\n";
+
+    //TEST plynomial fitting 
+
+    
 
     auto total_num_surfels = num_leafs*bvh->get_primitives_per_node();
     std::vector<xyzall_surfel_t> surfels_vector(total_num_surfels);
