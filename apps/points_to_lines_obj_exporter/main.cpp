@@ -22,6 +22,8 @@
 #include <lamure/ren/lod_stream.h>
 
 #include "math_wrapper.h"
+#include "nurbscurve.hpp"
+#include "point.hpp"
 
 #define DEFAULT_PRECISION 15
 #define OUTPUT_OBJ 1
@@ -51,6 +53,7 @@ struct xyzall_surfel_t {
 
 struct point{
 point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), r_(0), g_(150), b_(50), is_used_(false) {}
+point(float* pos) : pos_coordinates_{pos[0], pos[1], pos[2]},  id_(0), r_(200), g_(150), b_(50), is_used_(false) {}                        
 point(float* pos, int32_t id, uint8_t red, uint8_t green, uint8_t blue, bool is_used ) : 
                           pos_coordinates_{pos[0], pos[1], pos[2]},
                           id_(id),
@@ -225,6 +228,89 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
   return clusters_vector; 
 }
 
+//using namespace gpucast::math;
+std::vector<line> generate_lines_from_curve (std::vector<point> cluster_of_points) {
+//std::cout << "stage 0: " << cluster_of_points.size() << std::endl;
+
+
+  //coppy cluster content to vector of control points
+  std::vector<gpucast::math::point3d> control_points_vec;
+  for (int cluster_index = 0; cluster_index < cluster_of_points.size(); ++cluster_index){
+    auto x = cluster_of_points.at(cluster_index).pos_coordinates_[0];
+    auto y = cluster_of_points.at(cluster_index).pos_coordinates_[1];
+    auto z = cluster_of_points.at(cluster_index).pos_coordinates_[2];
+    auto weight = 1.0;
+    auto current_control_point = gpucast::math::point3d(x, y, z, weight);
+    control_points_vec.push_back(current_control_point);
+  }
+  //std::cout << "stage 1: " << control_points_vec.at(1) << std::endl;
+
+   auto degree = 5;
+
+  //generate knot vector
+  std::vector<double> knot_vec;
+  auto knot_vec_size = control_points_vec.size() + degree + 1; //knot vector should be of size: num. control points + order
+  
+  float last_knot_value = 0;
+  for(int knot_counter = 0; knot_counter < control_points_vec.size(); ++knot_counter){ //
+      knot_vec.push_back(double(knot_counter));
+      last_knot_value = knot_counter;
+  } 
+  for(int i = 0; i <= degree; ++i){ 
+      knot_vec.push_back(double(last_knot_value));
+  } 
+
+
+  /*knot_vec.push_back(last_knot_value);
+  knot_vec.push_back(last_knot_value);
+  knot_vec.push_back(last_knot_value);
+  knot_vec.push_back(last_knot_value);*/
+  //std::cout << "stage 2: " << knot_vec.size() << " vs " << knot_vec_size << std::endl;
+  /*for(int i = 0; i < knot_vec.size(); ++i){
+    std::cout << knot_vec.at(i) << std::endl;
+  }
+   std::cout << std::endl;*/
+
+
+  //curve fitting
+  gpucast::math::nurbscurve3d nurbs_curve;
+  nurbs_curve.set_points(control_points_vec.begin(), control_points_vec.end());
+  nurbs_curve.degree(degree);
+  nurbs_curve.set_knotvector(knot_vec.begin(), knot_vec.end());
+  //std::cout << "stage 3 " << knot_vec.at(1)  << std::endl;
+
+  //sample the curve inside the knot span
+  std::vector<line> line_segments_vec;
+  float parameter_t = degree;
+  float sampling_step = 0.01;
+  //int ppoint_id_counter = 0;
+  while(parameter_t < last_knot_value - sampling_step){
+
+    auto st_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
+    parameter_t += sampling_step;
+    //++point_id_counter;
+    auto end_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
+    
+
+    float pos_st_point[3] = {st_sampled_curve_point[0], st_sampled_curve_point[1], st_sampled_curve_point[2]};
+    float pos_end_point[3] = {end_sampled_curve_point[0], end_sampled_curve_point[1], end_sampled_curve_point[2]};
+
+    point current_start_point(pos_st_point);
+    point current_end_point(pos_end_point);
+    line current_line;
+    current_line.start = current_start_point;
+    current_line.end = current_end_point;
+    current_line.length = 0.1;//compute_distance(); //temp... fake sample length
+    line_segments_vec.push_back(current_line);
+    //parameter_t += sampling_step;
+    //++point_id_counter;
+  }
+
+  //std::cout << "stage 4 " << std::endl;
+  //return sampled points as vector of line segments (lines)
+  return line_segments_vec;
+}
+
 std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsigned long number_line_loops){
     
     //sort input points according to their y-coordinate 
@@ -234,6 +320,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
     std::vector<line> line_data;
+    std::vector<line> line_data_from_sampled_curve;
     unsigned long counter = 0; 
     unsigned long offset = floor(input_data.size() / number_line_loops);
     int total_num_clusters = 0;
@@ -261,14 +348,18 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           for(auto& current_cluster : all_clsters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
-              for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
+              /*for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
                 current_line.start = current_cluster.at(j);
                 current_line.end = current_cluster.at(j+1);
                 current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
                                                         lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
                 line_data.push_back(current_line);
-              }
+              }*/
               ++total_num_clusters;
+              line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
+              for(auto& current_line : line_data_from_sampled_curve){
+                line_data.push_back(current_line);
+              } 
             }
           }
         }
@@ -281,6 +372,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     std::cout << "num line loops: " << total_num_clusters << std::endl;
     return line_data;   
 }
+
 int main(int argc, char *argv[]) {
     
     if (argc == 1 || cmd_option_exists(argv, argv+argc, "-h") ||
@@ -338,20 +430,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "working with surfels at depth " << depth << "; Max depth for this moidel is "<<  bvh->get_depth() <<std::endl;
     lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
-
-    //TEST plynomial fitting 
-    std::vector<std::pair<double, double>> point_coordinates; 
-    for (int i = 0; i < 20; ++i) {
-      std::pair<double, double> current_coord_pair = std::make_pair (double(i),double(i));
-      point_coordinates.push_back(current_coord_pair);
-    }
-
-    auto polynomial_coeficients = math::fit_polynomial(point_coordinates, 2);
-    std::cout << polynomial_coeficients.at(0) << " + " << polynomial_coeficients.at(1) << "x + " << polynomial_coeficients.at(2) << "x^2\n";
-
-    //TEST plynomial fitting 
-
-    
+ 
 
     auto total_num_surfels = num_leafs*bvh->get_primitives_per_node();
     std::vector<xyzall_surfel_t> surfels_vector(total_num_surfels);
@@ -369,13 +448,13 @@ int main(int argc, char *argv[]) {
 
     auto line_data = generate_lines(surfels_vector, number_line_loops);
     auto avg_line_lenght = compute_global_average_line_length(line_data); 
-     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
+   /*  std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     //clean data
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
                                    [&](line l){return l.length >= 7.4 * avg_line_lenght;}),
                     line_data.end());
-    std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
+    std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;*/
     #if OUTPUT_OBJ
     std::ofstream output_file(obj_filename);
     unsigned long vert_counter = 1;
