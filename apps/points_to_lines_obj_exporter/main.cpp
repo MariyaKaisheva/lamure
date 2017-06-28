@@ -79,7 +79,7 @@ using clusters_t = std::vector<point>;
 
 //sort in descending order based on y coordinate value 
 bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
-    return A.pos_coordinates[1] > B.pos_coordinates[1];
+    return A.pos_coordinates[1] < B.pos_coordinates[1];
 }
 
 lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster) {
@@ -260,11 +260,6 @@ std::vector<line> generate_lines_from_curve (std::vector<point> cluster_of_point
       knot_vec.push_back(double(last_knot_value));
   } 
 
-
-  /*knot_vec.push_back(last_knot_value);
-  knot_vec.push_back(last_knot_value);
-  knot_vec.push_back(last_knot_value);
-  knot_vec.push_back(last_knot_value);*/
   //std::cout << "stage 2: " << knot_vec.size() << " vs " << knot_vec_size << std::endl;
   /*for(int i = 0; i < knot_vec.size(); ++i){
     std::cout << knot_vec.at(i) << std::endl;
@@ -282,7 +277,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> cluster_of_point
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   float parameter_t = degree;
-  float sampling_step = 0.01;
+  float sampling_step = 0.3;
   //int ppoint_id_counter = 0;
   while(parameter_t < last_knot_value - sampling_step){
 
@@ -300,7 +295,8 @@ std::vector<line> generate_lines_from_curve (std::vector<point> cluster_of_point
     line current_line;
     current_line.start = current_start_point;
     current_line.end = current_end_point;
-    current_line.length = 0.1;//compute_distance(); //temp... fake sample length
+    current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
+                                           lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2])); 
     line_segments_vec.push_back(current_line);
     //parameter_t += sampling_step;
     //++point_id_counter;
@@ -322,18 +318,24 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     std::vector<line> line_data;
     std::vector<line> line_data_from_sampled_curve;
     unsigned long counter = 0; 
-    unsigned long offset = floor(input_data.size() / number_line_loops);
+    auto num_elements = input_data.size();
+    auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
+    std::cout << "height: " << height << std::endl; 
+    float const offset = height / number_line_loops;
     int total_num_clusters = 0;
+
+    float current_y_min = input_data.at(0).pos_coordinates[1];
+    float current_y_max = current_y_min + offset;
+
     for(uint i = 0; i < number_line_loops; ++i) {
-        float current_y_min = input_data.at(counter).pos_coordinates[1];
-        float current_y_max = input_data.at(counter + offset).pos_coordinates[1];
-        counter += offset;
-
+       
         float current_y_mean = (current_y_min + current_y_max) / 2.0;
-
+        std::cout << "current_y_mean: " << current_y_mean << std::endl;
         auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= current_y_mean - threshold) && (surfel.pos_coordinates[1] <= current_y_mean + threshold);};
         auto it = std::copy_if(input_data.begin(), input_data.end(), current_bin_of_surfels.begin(), copy_lambda);
         current_bin_of_surfels.resize(std::distance(current_bin_of_surfels.begin(), it));
+        current_y_min = current_y_max;
+        current_y_max += offset;
         
         for (auto& surfel : current_bin_of_surfels) {
           surfel.pos_coordinates[1] = current_y_mean; //project all surfels for a given y_mean value to a single plane
@@ -348,18 +350,21 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           for(auto& current_cluster : all_clsters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
-              /*for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
+              #if 1
+              for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
                 current_line.start = current_cluster.at(j);
                 current_line.end = current_cluster.at(j+1);
                 current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
                                                         lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
                 line_data.push_back(current_line);
-              }*/
+              }
+              #else
+                line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
+                for(auto& current_line : line_data_from_sampled_curve){
+                  line_data.push_back(current_line);
+                } 
+              #endif
               ++total_num_clusters;
-              line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
-              for(auto& current_line : line_data_from_sampled_curve){
-                line_data.push_back(current_line);
-              } 
             }
           }
         }
@@ -408,7 +413,7 @@ int main(int argc, char *argv[]) {
       depth = bvh->get_depth();
     }
 
-    unsigned long number_line_loops = 20; //TODO make number dependent on model size??
+    unsigned long number_line_loops = 25; //TODO make number dependent on model size??
     if(cmd_option_exists(argv, argv+argc, "-l")){
      number_line_loops = atoi(get_cmd_option(argv, argv+argc, "-l")); //user input
     }
@@ -448,13 +453,16 @@ int main(int argc, char *argv[]) {
 
     auto line_data = generate_lines(surfels_vector, number_line_loops);
     auto avg_line_lenght = compute_global_average_line_length(line_data); 
-   /*  std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
+    #if 0
+    std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     //clean data
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
-                                   [&](line l){return l.length >= 7.4 * avg_line_lenght;}),
+                                   [&](line l){return l.length >= 4.8 * avg_line_lenght;}),
                     line_data.end());
-    std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;*/
+    std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
+    #endif
+
     #if OUTPUT_OBJ
     std::ofstream output_file(obj_filename);
     unsigned long vert_counter = 1;
