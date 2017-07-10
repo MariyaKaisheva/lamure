@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <set>
 #include <algorithm>
 #include <memory>
 #include <limits>
@@ -21,6 +22,7 @@
 #include <lamure/ren/bvh.h>
 #include <lamure/ren/lod_stream.h>
 
+#include "color_hash_map.hpp"
 #include "math_wrapper.h"
 #include "nurbscurve.hpp"
 #include "point.hpp"
@@ -52,19 +54,33 @@ struct xyzall_surfel_t {
 };
 
 struct point{
-point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), r_(0), g_(150), b_(50), is_used_(false) {}
-point(float* pos) : pos_coordinates_{pos[0], pos[1], pos[2]},  id_(0), r_(200), g_(150), b_(50), is_used_(false) {}                        
-point(float* pos, int32_t id, uint8_t red, uint8_t green, uint8_t blue, bool is_used ) : 
+point() : pos_coordinates_{0.0, 0.0, 0.0}, id_(0), r_(0), g_(150), b_(50), is_used_(false), is_member_of_cluster_(false) {}
+point(float* pos) : pos_coordinates_{pos[0], pos[1], pos[2]},  id_(0), r_(200), g_(150), b_(50), is_used_(false), is_member_of_cluster_(false) {}                        
+point(float* pos, int32_t id) : pos_coordinates_{pos[0], pos[1], pos[2]},  id_(id), r_(200), g_(150), b_(50), is_used_(false), is_member_of_cluster_(false) {}   
+point(float* pos, int32_t id, uint8_t red, uint8_t green, uint8_t blue, bool is_used = false, bool is_member_of_cluster = false) : 
                           pos_coordinates_{pos[0], pos[1], pos[2]},
                           id_(id),
                           r_(red),
                           g_(green),
                           b_(blue),
-                          is_used_(is_used) {}
+                          is_used_(is_used),
+                          is_member_of_cluster_(is_member_of_cluster) {}
+
+bool operator==(point const& rhs){
+  return (*this).id_ == rhs.id_;
+}
+
+void set_color(lamure::vec3b const& color_vector) {
+  r_ = color_vector[0];
+  g_ = color_vector[1];
+  b_ = color_vector[2];
+}
+
 float pos_coordinates_[3];
 int32_t id_;
 uint8_t r_, g_, b_;
 bool is_used_;
+bool is_member_of_cluster_;
 };
 
 struct line{
@@ -124,16 +140,16 @@ float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
 }
 
 float compute_global_average_line_length(std::vector<line> const& all_lines) {
-  float avg_line_lenght = 0.0; 
+  float avg_line_length = 0.0; 
   if(all_lines.size() > 1){
     for (auto const& line : all_lines){
-      avg_line_lenght += line.length; 
+      avg_line_length += line.length; 
     }
-    return avg_line_lenght/all_lines.size();     
+    return avg_line_length/all_lines.size();     
   }
   else{
     std::cout << "Total num lines < 1 \n"; 
-    return avg_line_lenght; 
+    return avg_line_length; 
   }
 }
 
@@ -162,6 +178,28 @@ std::pair<float, point> find_nearest_neighbour (point const& start_point, std::v
 
   std::pair<float, point> result(current_min, current_nearest_neighbour);
   return result;
+}
+
+//TODO store all distance-respective_point pairs in a sorted container; return the first K elements in the container 
+
+std::vector<point*> find_near_neighbours(float max_distance, point const& start_point, std::vector<point>& all_points){
+  //std::map<float, point> distance_point_map;
+  std::vector<point*> neighbourhood;
+  for(auto& p : all_points){
+
+    float distance = compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
+                                      lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]));
+    //std::cout << "DISTANCE: " << distance << std::endl;
+    //std::cout << "DISTANCE: " << distance << std::endl;
+   // std::cout << "diff: " << distance - max_distance << std::endl;
+    if(distance <= max_distance ){
+      neighbourhood.push_back(&p);
+    }
+      //distance_point_map.insert(std::make_pair(distance, p));
+  
+  }
+  
+  return neighbourhood; 
 }
 
 std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
@@ -226,6 +264,88 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
 
   //std::cout << cluster_counter << std::endl;
   return clusters_vector; 
+}
+
+
+void expand_cluster(point const& current_point, std::vector<point*>& neighbourhood, std::vector<point>& all_points_per_layer, clusters_t& current_cluster, float eps, uint8_t min_points) {
+  current_cluster.push_back(current_point);
+  //for(auto& neighbour_point : neighbourhood) {
+  auto size = neighbourhood.size();
+
+  for(uint32_t point_itr = 0; point_itr < size; ++point_itr) {
+    auto& neighbour_point = neighbourhood.at(point_itr);  
+    if(!neighbour_point->is_used_){ //if P' is not visited
+      neighbour_point->is_used_ = true; //mark P' as visited
+      auto next_neighbourhood = find_near_neighbours(eps, *neighbour_point, all_points_per_layer); //region Query (P', eps)
+      if(next_neighbourhood.size() >= min_points){ 
+
+        for(auto& next_neighbour_point : next_neighbourhood){
+          if(!next_neighbour_point->is_used_) {
+            if( std::find(neighbourhood.begin(), neighbourhood.end(), next_neighbour_point) == neighbourhood.end() ){
+              neighbourhood.push_back(next_neighbour_point);
+            }
+          }
+        //neighbourhood.insert(neighbourhood.end(), next_neighbourhood.begin(), next_neighbourhood.end());
+        }
+
+      }
+      std::cout << "Size of neighbourhood vec: " << size << std::endl;
+      size = neighbourhood.size();
+
+      if( !neighbour_point->is_member_of_cluster_ ) {
+        neighbour_point->is_member_of_cluster_ = true;
+        current_cluster.push_back(*neighbour_point);
+
+      }
+    }
+  }
+}
+
+std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, float eps, uint8_t min_points){
+  //create vector of points, containg all surfels per layer in point format
+  std::vector<point> all_points_per_layer;
+  uint32_t id_counter = 0; 
+  for (auto& s: all_surfels_per_layer){
+    point current_point(s.pos_coordinates, id_counter, s.r_, s.g_, s.b_);
+    all_points_per_layer.push_back(current_point);
+    ++id_counter;
+  }
+
+  std::vector<clusters_t> clusters_vec;
+
+
+  uint32_t current_cluster_id = 0;
+
+  //iterate over all points 
+  for (auto& current_point : all_points_per_layer) {
+    if(current_point.is_used_){
+      continue; //point has been already evaluated
+    } 
+    else{
+      current_point.is_used_ = true;
+      auto neighbourhood = find_near_neighbours(eps, current_point, all_points_per_layer);
+      std::cout << "Num points in eps range: " << neighbourhood.size() << std::endl;
+      if(neighbourhood.size() < min_points){
+        continue; //point is considered noise and is not added to any cluster
+      }
+      else{
+        clusters_t current_cluster;
+        expand_cluster(current_point, neighbourhood, all_points_per_layer, current_cluster, eps, min_points);
+
+        uint32_t current_cluster_color_id = id_to_color_hash(current_cluster_id);
+        lamure::vec3b current_cluster_color = color_array[current_cluster_color_id];
+        for( auto& point_in_current_cluster : current_cluster) {
+          point_in_current_cluster.set_color(current_cluster_color);
+        }
+        ++current_cluster_id;
+
+        clusters_vec.push_back(current_cluster);
+
+      }
+    }
+  }
+
+  return clusters_vec;
 }
 
 //using namespace gpucast::math;
@@ -312,7 +432,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.0002; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.002; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
     std::vector<line> line_data;
@@ -341,13 +461,21 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           surfel.pos_coordinates[1] = current_y_mean; //project all surfels for a given y_mean value to a single plane
         }
   
-        auto all_clsters_per_bin_vector = create_clusters(current_bin_of_surfels);
-        std::cout << "all_clsters_per_bin_vector.size(): " <<  all_clsters_per_bin_vector.size() << " \n";
+        //auto all_clusters_per_bin_vector = create_clusters(current_bin_of_surfels);
+        float eps = 0.30;
+        std::cout << "XX_C_XX STARTING DB SCAN WITH " << current_bin_of_surfels.size() << " surfels\n";
+        auto all_clusters_per_bin_vector = create_DBSCAN_clusters(current_bin_of_surfels, eps, 3);
+        std::cout << "all_clusters_per_bin_vector.size(): " <<  all_clusters_per_bin_vector.size() << " \n";
         line current_line; 
 
-        if(all_clsters_per_bin_vector.size() > 0){
+        std::cout << "XX_C_XX: Num Points per Cluster:\n";
+        for(auto const& points_per_cluster : all_clusters_per_bin_vector) {
+          std::cout << "XX_C_XX: " << points_per_cluster.size() << "\n";
+        } 
 
-          for(auto& current_cluster : all_clsters_per_bin_vector){
+        if(all_clusters_per_bin_vector.size() > 0){
+
+          for(auto& current_cluster : all_clusters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
               #if 1
@@ -388,7 +516,8 @@ int main(int argc, char *argv[]) {
          "\t-f: specify .bvh input file" << std::endl <<
          "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
          "\t-l: (optional) specify number of slycing layers; default value is 20" << std::endl <<
-         "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl <<
+         "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
+         "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
          std::endl;
       return 0;
     }
@@ -413,6 +542,8 @@ int main(int argc, char *argv[]) {
       depth = bvh->get_depth();
     }
 
+    bool write_obj_file = !cmd_option_exists(argv, argv + argc, "--write_xyz_points");
+
     unsigned long number_line_loops = 25; //TODO make number dependent on model size??
     if(cmd_option_exists(argv, argv+argc, "-l")){
      number_line_loops = atoi(get_cmd_option(argv, argv+argc, "-l")); //user input
@@ -421,11 +552,15 @@ int main(int argc, char *argv[]) {
     std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".obj";
     std::string xyz_all_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".xyz_all";
     std::cout << "input: " << bvh_filename << std::endl;
-    #if OUTPUT_OBJ
-    std::cout << "output: " << obj_filename << std::endl;
-    #else
-    std::cout << "output: " << xyz_all_filename << std::endl;
-    #endif
+   
+    std::cout << "output: ";
+    if(write_obj_file) {
+      std::cout << obj_filename; 
+    }
+    else {
+      std::cout << xyz_all_filename;
+    }
+    std::cout << std::endl;
 
     std::string lod_filename = bvh_filename.substr(0, bvh_filename.size()-3) + "lod";
     lamure::ren::lod_stream* in_access = new lamure::ren::lod_stream();
@@ -452,85 +587,90 @@ int main(int argc, char *argv[]) {
                          surfels_vector.end());
 
     auto line_data = generate_lines(surfels_vector, number_line_loops);
-    auto avg_line_lenght = compute_global_average_line_length(line_data); 
+    auto avg_line_length = compute_global_average_line_length(line_data); 
     #if 0
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     //clean data
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
-                                   [&](line l){return l.length >= 4.8 * avg_line_lenght;}),
+                                   [&](line l){return l.length >= 4.8 * avg_line_length;}),
                     line_data.end());
     std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
     #endif
 
-    #if OUTPUT_OBJ
-    std::ofstream output_file(obj_filename);
-    unsigned long vert_counter = 1;
+    if(write_obj_file) {
+      std::ofstream output_file(obj_filename);
+      unsigned long vert_counter = 1;
 
-    if (output_file.is_open()){
-        for (uint i = 0; i < line_data.size(); ++i){
-         output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).start.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION)<< line_data.at(i).start.pos_coordinates_[2] << "\n";
-         output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
-         //vertex duplication to emulate triangle
-         output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
-         output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
-         vert_counter += 3;
-        }
+      if (output_file.is_open()){
+          for (uint i = 0; i < line_data.size(); ++i){
+           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).start.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION)<< line_data.at(i).start.pos_coordinates_[2] << "\n";
+           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
+           //vertex duplication to emulate triangle
+           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] + 0.004 << "\n";
+           output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
+           vert_counter += 3;
+          }
 
-        //TODO connect first and last line segment of the loop
-      
-        output_file.close();
-    }
-    else{
-      std::cout << "Cannot open output file to write to! \n";
-    }
-    #else
+          //TODO connect first and last line segment of the loop
+        
+          output_file.close();
+      }
+      else{
+        std::cout << "Cannot open output file to write to! \n";
+      }
 
-    //consider hidden translation
-    const scm::math::vec3f& translation = bvh->get_translation();
-    std::ofstream output_file(xyz_all_filename);
-    lamure::vec3f const fixed_upward_normal(0.0, 1.0, 0.0);
-    lamure::vec3f const fixed_forward_normal(0.0, 0.0, 1.0);
-    float const fixed_radius(0.02);
-    if (output_file.is_open()){
-        for (uint i = 0; i < line_data.size(); ++i){
-         output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
-         output_file << 80 << " ";
-         output_file << 190 << " ";
-         output_file << 230 << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
-         #if BIDIRECTIONAL
-         output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.x << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.y << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.z << " ";
-         /*output_file << line_data.at(i).start.r_ << " ";
-         output_file << line_data.at(i).start.g_ << " ";
-         output_file << line_data.at(i).start.b_ << " ";*/
-         output_file << 30 << " ";
-         output_file << 150 << " ";
-         output_file << 100 << " ";
-         output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
-         #endif
+    }
+    else {
+      //consider hidden translation
+      const scm::math::vec3f& translation = bvh->get_translation();
+      std::ofstream output_file(xyz_all_filename);
+      lamure::vec3f const fixed_upward_normal(0.0, 1.0, 0.0);
+      lamure::vec3f const fixed_forward_normal(0.0, 0.0, 1.0);
+      float const fixed_radius(0.02);
+      if (output_file.is_open()){
+          for (uint i = 0; i < line_data.size(); ++i){
+           output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
+           /*output_file << 80 << " ";
+           output_file << 190 << " ";
+           output_file << 230 << " ";*/
+           output_file << (int) line_data.at(i).start.r_  << " ";
+           output_file << (int) line_data.at(i).start.g_ << " ";
+           output_file << (int) line_data.at(i).start.b_ << " ";  
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
+           #if BIDIRECTIONAL
+           output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.x << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.y << " ";
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.z << " ";
+           output_file << (int) line_data.at(i).start.r_  << " ";
+           output_file << (int) line_data.at(i).start.g_ << " ";
+           output_file << (int) line_data.at(i).start.b_ << " ";  
+           /*output_file << 30 << " ";
+           output_file << 150 << " ";
+           output_file << 100 << " ";
+           */
+           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
+           #endif
 
-         /*std::cout << "Red: "<< line_data.at(i).start.r_ << std::endl;
-         std::cout << "Green: "<< line_data.at(i).start.g_ << std::endl;
-         std::cout << "Blue: "<< line_data.at(i).start.b_ << std::endl;*/
-        }
-      
-        output_file.close();
+           /*std::cout << "Red: "<< line_data.at(i).start.r_ << std::endl;
+           std::cout << "Green: "<< line_data.at(i).start.g_ << std::endl;
+           std::cout << "Blue: "<< line_data.at(i).start.b_ << std::endl;*/
+          }
+        
+          output_file.close();
+      }
+      else{
+        std::cout << "Cannot open output file to write to! \n";
+      }
     }
-    else{
-      std::cout << "Cannot open output file to write to! \n";
-    }
-    #endif
    
     std::cout << "ok \n";
 
