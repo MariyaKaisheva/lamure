@@ -112,7 +112,7 @@ lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point
   average_y /= number_of_surfels_per_layer;
   average_z /= number_of_surfels_per_layer;
   lamure::vec3f average_position(average_x, average_y, average_z);
-  //std::cout << "centroid_pos: " << average_position << std::endl;
+  
   return average_position;
 }
 
@@ -180,23 +180,16 @@ std::pair<float, point> find_nearest_neighbour (point const& start_point, std::v
   return result;
 }
 
-//TODO store all distance-respective_point pairs in a sorted container; return the first K elements in the container 
 
 std::vector<point*> find_near_neighbours(float max_distance, point const& start_point, std::vector<point>& all_points){
-  //std::map<float, point> distance_point_map;
   std::vector<point*> neighbourhood;
   for(auto& p : all_points){
 
     float distance = compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
                                       lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]));
-    //std::cout << "DISTANCE: " << distance << std::endl;
-    //std::cout << "DISTANCE: " << distance << std::endl;
-   // std::cout << "diff: " << distance - max_distance << std::endl;
     if(distance <= max_distance ){
       neighbourhood.push_back(&p);
     }
-      //distance_point_map.insert(std::make_pair(distance, p));
-  
   }
   
   return neighbourhood; 
@@ -278,24 +271,26 @@ void expand_cluster(point const& current_point, std::vector<point*>& neighbourho
       neighbour_point->is_used_ = true; //mark P' as visited
       auto next_neighbourhood = find_near_neighbours(eps, *neighbour_point, all_points_per_layer); //region Query (P', eps)
       if(next_neighbourhood.size() >= min_points){ 
-
+        std::cout << "Size of neighbourhood vec 1: " << size << std::endl;
         for(auto& next_neighbour_point : next_neighbourhood){
+         // std::cout << "Point id: " <<  next_neighbour_point->id_ << " next_neighbourhood.size(): " << next_neighbourhood.size() << std::endl;
           if(!next_neighbour_point->is_used_) {
             if( std::find(neighbourhood.begin(), neighbourhood.end(), next_neighbour_point) == neighbourhood.end() ){
+              std::cout << "Adding a point!" <<  std::endl;
               neighbourhood.push_back(next_neighbour_point);
+              //std::cout 
             }
           }
-        //neighbourhood.insert(neighbourhood.end(), next_neighbourhood.begin(), next_neighbourhood.end());
         }
 
       }
-      std::cout << "Size of neighbourhood vec: " << size << std::endl;
+      std::cout << "Size of neighbourhood vec 2: " << size << std::endl;
       size = neighbourhood.size();
 
       if( !neighbour_point->is_member_of_cluster_ ) {
         neighbour_point->is_member_of_cluster_ = true;
         current_cluster.push_back(*neighbour_point);
-
+         std::cout << "Adding a point to cluster!" <<  std::endl;
       }
     }
   }
@@ -324,7 +319,9 @@ std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, f
     else{
       current_point.is_used_ = true;
       auto neighbourhood = find_near_neighbours(eps, current_point, all_points_per_layer);
-      std::cout << "Num points in eps range: " << neighbourhood.size() << std::endl;
+
+      neighbourhood.reserve(1000000);
+        //std::cout << "Num points in eps range: " << neighbourhood.size() << std::endl;
       if(neighbourhood.size() < min_points){
         continue; //point is considered noise and is not added to any cluster
       }
@@ -349,61 +346,62 @@ std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, f
 }
 
 //using namespace gpucast::math;
-std::vector<line> generate_lines_from_curve (std::vector<point> cluster_of_points) {
-//std::cout << "stage 0: " << cluster_of_points.size() << std::endl;
+std::vector<line> generate_lines_from_curve (std::vector<point>& cluster_of_points) {
 
-
+  std::cout << "incoming cluster size: " << cluster_of_points.size() << std::endl;
+ 
   //coppy cluster content to vector of control points
-  std::vector<gpucast::math::point3d> control_points_vec;
-  for (int cluster_index = 0; cluster_index < cluster_of_points.size(); ++cluster_index){
+
+  std::vector<gpucast::math::point3d> control_points_vec(cluster_of_points.size());
+  
+  #pragma omp parallel for
+  for (uint cluster_index = 0; cluster_index < cluster_of_points.size(); ++cluster_index){
     auto x = cluster_of_points.at(cluster_index).pos_coordinates_[0];
     auto y = cluster_of_points.at(cluster_index).pos_coordinates_[1];
     auto z = cluster_of_points.at(cluster_index).pos_coordinates_[2];
     auto weight = 1.0;
     auto current_control_point = gpucast::math::point3d(x, y, z, weight);
-    control_points_vec.push_back(current_control_point);
+    control_points_vec[cluster_index] = current_control_point;
   }
-  //std::cout << "stage 1: " << control_points_vec.at(1) << std::endl;
 
-   auto degree = 5;
+  std::cout << "control_points_vec size: " << control_points_vec.size() << std::endl;
+
+   uint degree = 5;
+
+   //num control points must be >= order (degree + 1)
+   if (control_points_vec.size() < degree + 1) {
+      //throw std::runtime_error("Insufficient number of control points");
+      degree = control_points_vec.size() - 1;
+   }
 
   //generate knot vector
   std::vector<double> knot_vec;
-  auto knot_vec_size = control_points_vec.size() + degree + 1; //knot vector should be of size: num. control points + order
+ // auto knot_vec_size = control_points_vec.size() + degree + 1; //knot vector should be of size: num. control points + order
   
   float last_knot_value = 0;
-  for(int knot_counter = 0; knot_counter < control_points_vec.size(); ++knot_counter){ //
+  for(uint knot_counter = 0; knot_counter < control_points_vec.size(); ++knot_counter){ //
       knot_vec.push_back(double(knot_counter));
       last_knot_value = knot_counter;
   } 
-  for(int i = 0; i <= degree; ++i){ 
+  for(uint i = 0; i <= degree; ++i){ 
       knot_vec.push_back(double(last_knot_value));
   } 
-
-  //std::cout << "stage 2: " << knot_vec.size() << " vs " << knot_vec_size << std::endl;
-  /*for(int i = 0; i < knot_vec.size(); ++i){
-    std::cout << knot_vec.at(i) << std::endl;
-  }
-   std::cout << std::endl;*/
-
 
   //curve fitting
   gpucast::math::nurbscurve3d nurbs_curve;
   nurbs_curve.set_points(control_points_vec.begin(), control_points_vec.end());
   nurbs_curve.degree(degree);
   nurbs_curve.set_knotvector(knot_vec.begin(), knot_vec.end());
-  //std::cout << "stage 3 " << knot_vec.at(1)  << std::endl;
 
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   float parameter_t = degree;
-  float sampling_step = 0.3;
+  float sampling_step = 0.5;
   //int ppoint_id_counter = 0;
   while(parameter_t < last_knot_value - sampling_step){
 
     auto st_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
     parameter_t += sampling_step;
-    //++point_id_counter;
     auto end_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
     
 
@@ -419,28 +417,25 @@ std::vector<line> generate_lines_from_curve (std::vector<point> cluster_of_point
                                            lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2])); 
     line_segments_vec.push_back(current_line);
     //parameter_t += sampling_step;
-    //++point_id_counter;
   }
 
-  //std::cout << "stage 4 " << std::endl;
   //return sampled points as vector of line segments (lines)
   return line_segments_vec;
 }
 
-std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsigned long number_line_loops){
+std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsigned long number_line_loops, bool use_nurbs, bool apply_naive_clustering){
     
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.002; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.01; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
     std::vector<line> line_data;
     std::vector<line> line_data_from_sampled_curve;
-    unsigned long counter = 0; 
     auto num_elements = input_data.size();
     auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
-    std::cout << "height: " << height << std::endl; 
+    //std::cout << "height: " << height << std::endl; 
     float const offset = height / number_line_loops;
     int total_num_clusters = 0;
 
@@ -450,7 +445,10 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     for(uint i = 0; i < number_line_loops; ++i) {
        
         float current_y_mean = (current_y_min + current_y_max) / 2.0;
-        std::cout << "current_y_mean: " << current_y_mean << std::endl;
+        //std::cout << "current_y_mean: " << current_y_mean << std::endl;
+        if(threshold > current_y_max - current_y_mean) {
+          throw  std::runtime_error("density thershold might be too low");
+        } 
         auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= current_y_mean - threshold) && (surfel.pos_coordinates[1] <= current_y_mean + threshold);};
         auto it = std::copy_if(input_data.begin(), input_data.end(), current_bin_of_surfels.begin(), copy_lambda);
         current_bin_of_surfels.resize(std::distance(current_bin_of_surfels.begin(), it));
@@ -460,38 +458,77 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         for (auto& surfel : current_bin_of_surfels) {
           surfel.pos_coordinates[1] = current_y_mean; //project all surfels for a given y_mean value to a single plane
         }
-  
-        //auto all_clusters_per_bin_vector = create_clusters(current_bin_of_surfels);
-        float eps = 0.30;
-        std::cout << "XX_C_XX STARTING DB SCAN WITH " << current_bin_of_surfels.size() << " surfels\n";
-        auto all_clusters_per_bin_vector = create_DBSCAN_clusters(current_bin_of_surfels, eps, 3);
+        
+
+        std::vector<clusters_t> all_clusters_per_bin_vector;
+        if(apply_naive_clustering){
+          all_clusters_per_bin_vector = create_clusters(current_bin_of_surfels);
+        }else{
+          float eps = 0.05;
+          uint8_t minPots = 3;
+          //std::cout << "XX_C_XX STARTING DB SCAN WITH " << current_bin_of_surfels.size() << " surfels\n";
+          all_clusters_per_bin_vector = create_DBSCAN_clusters(current_bin_of_surfels, eps, minPots);
+        }
+
         std::cout << "all_clusters_per_bin_vector.size(): " <<  all_clusters_per_bin_vector.size() << " \n";
         line current_line; 
 
-        std::cout << "XX_C_XX: Num Points per Cluster:\n";
+        /*-std::cout << "XX_C_XX: Num Points per Cluster:\n";
         for(auto const& points_per_cluster : all_clusters_per_bin_vector) {
           std::cout << "XX_C_XX: " << points_per_cluster.size() << "\n";
-        } 
+        } */
 
         if(all_clusters_per_bin_vector.size() > 0){
 
           for(auto& current_cluster : all_clusters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
-              #if 1
-              for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
-                current_line.start = current_cluster.at(j);
-                current_line.end = current_cluster.at(j+1);
-                current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
-                                                        lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
-                line_data.push_back(current_line);
-              }
-              #else
+
+
+              lamure::vec3f centroid_pos = compute_cluster_centroid_position(current_cluster);
+              auto angle_sorting_lambda = [&](point const& surfel_A,
+                                              point const& surfel_B){
+                                                   // std::cout << "Sorting, sorting cluster\n";
+                                                    lamure::vec3f surfel_position_A (surfel_A.pos_coordinates_[0], surfel_A.pos_coordinates_[1], surfel_A.pos_coordinates_[2]);
+                                                    lamure::vec3f surfel_position_B (surfel_B.pos_coordinates_[0], surfel_B.pos_coordinates_[1], surfel_B.pos_coordinates_[2]);
+                                                    lamure::vec3f centroid_surfel_vec_A = normalize(surfel_position_A - centroid_pos);
+                                                    lamure::vec3f centroid_surfel_vec_B = normalize(surfel_position_B - centroid_pos);
+                                                    auto plane_rotation_angle_A = dot(centroid_surfel_vec_A, direction_ref_vector);
+                                                    auto plane_rotation_angle_B = dot(centroid_surfel_vec_B, direction_ref_vector);
+                                                    //both vectors are in the lower half of the unit cirle => 
+                                                    //sort in descending order of angle b/n centroid_serfel_vector and reference vector
+                                                    if((surfel_position_A.z <= centroid_pos.z) && (surfel_position_B.z <= centroid_pos.z)){
+                                                      return plane_rotation_angle_A >= plane_rotation_angle_B; 
+                                                    }
+                                                    //both vectors are in the upper half of the unit cirle => 
+                                                    //sort in ascending order of angle b/n centroid_serfel_vector and reference vector
+                                                    else if((surfel_position_A.z >= centroid_pos.z) && (surfel_position_B.z >= centroid_pos.z)) {
+
+                                                      return plane_rotation_angle_A <= plane_rotation_angle_B;
+                                                    } 
+                                                    //vectors are in opposite halfs of the unit cirle => 
+                                                    //sort in descending order of z coordinate
+                                                    else {
+                                                      return surfel_position_A.z <= surfel_position_B.z;
+                                                    }
+                                              };
+
+              std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
+              
+              if(!use_nurbs){ 
+                for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
+                  current_line.start = current_cluster.at(j);
+                  current_line.end = current_cluster.at(j+1);
+                  current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
+                                                          lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
+                  line_data.push_back(current_line);
+                }
+              }else {
                 line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
                 for(auto& current_line : line_data_from_sampled_curve){
                   line_data.push_back(current_line);
                 } 
-              #endif
+              }
               ++total_num_clusters;
             }
           }
@@ -517,6 +554,8 @@ int main(int argc, char *argv[]) {
          "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
          "\t-l: (optional) specify number of slycing layers; default value is 20" << std::endl <<
          "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
+         "\t--apply_nurbs_fitting: (optional); set flag for curve-fitting to TRUE" << std::endl << 
+         "\t--use_dbscan: (optional); set DBSCAN as prefered clustering algorithm" << std::endl << 
          "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
          std::endl;
       return 0;
@@ -585,12 +624,14 @@ int main(int argc, char *argv[]) {
                                         surfels_vector.end(),
                                         [](xyzall_surfel_t s){return s.radius_ <= 0.0;}),
                          surfels_vector.end());
-
-    auto line_data = generate_lines(surfels_vector, number_line_loops);
-    auto avg_line_length = compute_global_average_line_length(line_data); 
+    bool use_nurbs = cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
+    bool apply_naive_clustering = !cmd_option_exists(argv, argv + argc, "--use_dbscan");
+    auto line_data = generate_lines(surfels_vector, number_line_loops, use_nurbs, apply_naive_clustering);
+    
     #if 0
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     //clean data
+    auto avg_line_length = compute_global_average_line_length(line_data); 
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
                                    [&](line l){return l.length >= 4.8 * avg_line_length;}),
@@ -607,7 +648,7 @@ int main(int argc, char *argv[]) {
            output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).start.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION)<< line_data.at(i).start.pos_coordinates_[2] << "\n";
            output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
            //vertex duplication to emulate triangle
-           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] + 0.004 << "\n";
+           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
            output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
            vert_counter += 3;
           }
@@ -659,10 +700,6 @@ int main(int argc, char *argv[]) {
            */
            output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
            #endif
-
-           /*std::cout << "Red: "<< line_data.at(i).start.r_ << std::endl;
-           std::cout << "Green: "<< line_data.at(i).start.g_ << std::endl;
-           std::cout << "Blue: "<< line_data.at(i).start.b_ << std::endl;*/
           }
         
           output_file.close();
