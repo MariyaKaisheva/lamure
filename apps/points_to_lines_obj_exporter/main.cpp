@@ -296,6 +296,8 @@ void expand_cluster(point const& current_point, std::vector<point*>& neighbourho
   }
 }
 
+uint32_t current_cluster_id = 0;
+
 std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, float eps, uint8_t min_points){
   //create vector of points, containg all surfels per layer in point format
   std::vector<point> all_points_per_layer;
@@ -309,7 +311,7 @@ std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, f
   std::vector<clusters_t> clusters_vec;
 
 
-  uint32_t current_cluster_id = 0;
+  //uint32_t current_cluster_id = 0;
 
   //iterate over all points 
   for (auto& current_point : all_points_per_layer) {
@@ -320,21 +322,14 @@ std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, f
       current_point.is_used_ = true;
       auto neighbourhood = find_near_neighbours(eps, current_point, all_points_per_layer);
 
-      neighbourhood.reserve(1000000);
-        //std::cout << "Num points in eps range: " << neighbourhood.size() << std::endl;
+      neighbourhood.reserve(all_surfels_per_layer.size());
+
       if(neighbourhood.size() < min_points){
         continue; //point is considered noise and is not added to any cluster
       }
       else{
         clusters_t current_cluster;
         expand_cluster(current_point, neighbourhood, all_points_per_layer, current_cluster, eps, min_points);
-
-        uint32_t current_cluster_color_id = id_to_color_hash(current_cluster_id);
-        lamure::vec3b current_cluster_color = color_array[current_cluster_color_id];
-        for( auto& point_in_current_cluster : current_cluster) {
-          point_in_current_cluster.set_color(current_cluster_color);
-        }
-        ++current_cluster_id;
 
         clusters_vec.push_back(current_cluster);
 
@@ -346,7 +341,7 @@ std::vector<clusters_t> create_DBSCAN_clusters (bins_t& all_surfels_per_layer, f
 }
 
 //using namespace gpucast::math;
-std::vector<line> generate_lines_from_curve (std::vector<point>& cluster_of_points) {
+std::vector<line> generate_lines_from_curve (std::vector<point> const& cluster_of_points) {
 
   std::cout << "incoming cluster size: " << cluster_of_points.size() << std::endl;
  
@@ -430,9 +425,9 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
     float threshold = 0.01; //TODO think of alternative for dynamic calculation of thershold value
 
-    std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size()); 
+    std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
-    std::vector<line> line_data_from_sampled_curve;
+
     auto num_elements = input_data.size();
     auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
     //std::cout << "height: " << height << std::endl; 
@@ -470,6 +465,16 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           all_clusters_per_bin_vector = create_DBSCAN_clusters(current_bin_of_surfels, eps, minPots);
         }
 
+        //color clusters
+        for( auto& current_cluster : all_clusters_per_bin_vector ) {
+          uint32_t current_cluster_color_id = id_to_color_hash(current_cluster_id);
+          lamure::vec3b current_cluster_color = color_array[current_cluster_color_id];
+          for( auto& point_in_current_cluster : current_cluster) {
+            point_in_current_cluster.set_color(current_cluster_color);
+          }
+          ++current_cluster_id;
+        }
+
         std::cout << "all_clusters_per_bin_vector.size(): " <<  all_clusters_per_bin_vector.size() << " \n";
         line current_line; 
 
@@ -484,7 +489,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
 
-
+/*
               lamure::vec3f centroid_pos = compute_cluster_centroid_position(current_cluster);
               auto angle_sorting_lambda = [&](point const& surfel_A,
                                               point const& surfel_B){
@@ -514,18 +519,24 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
                                               };
 
               std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
-              
+*/
+
               if(!use_nurbs){ 
-                for (uint j = 0; j < (current_cluster.size()) - 1; ++j){ 
-                  current_line.start = current_cluster.at(j);
-                  current_line.end = current_cluster.at(j+1);
+
+                uint32_t num_lines_to_push = (current_cluster.size()) - 1;
+
+                for (uint line_idx = 0; line_idx < num_lines_to_push; ++line_idx) { 
+                  current_line.start = current_cluster.at(line_idx);
+                  current_line.end = current_cluster.at(line_idx+1);
                   current_line.length = compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
                                                           lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
                   line_data.push_back(current_line);
                 }
               }else {
-                line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
+                std::vector<line> const line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
+
                 for(auto& current_line : line_data_from_sampled_curve){
+
                   line_data.push_back(current_line);
                 } 
               }
