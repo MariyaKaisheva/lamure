@@ -262,7 +262,7 @@ std::vector<clusters_t> create_clusters (bins_t& all_surfels_per_layer){
 
 void expand_cluster(point const& current_point, std::vector<point*>& neighbourhood, std::vector<point>& all_points_per_layer, clusters_t& current_cluster, float eps, uint8_t min_points) {
   current_cluster.push_back(current_point);
-  //for(auto& neighbour_point : neighbourhood) {
+
   auto size = neighbourhood.size();
 
   for(uint32_t point_itr = 0; point_itr < size; ++point_itr) {
@@ -271,26 +271,20 @@ void expand_cluster(point const& current_point, std::vector<point*>& neighbourho
       neighbour_point->is_used_ = true; //mark P' as visited
       auto next_neighbourhood = find_near_neighbours(eps, *neighbour_point, all_points_per_layer); //region Query (P', eps)
       if(next_neighbourhood.size() >= min_points){ 
-        std::cout << "Size of neighbourhood vec 1: " << size << std::endl;
         for(auto& next_neighbour_point : next_neighbourhood){
-         // std::cout << "Point id: " <<  next_neighbour_point->id_ << " next_neighbourhood.size(): " << next_neighbourhood.size() << std::endl;
           if(!next_neighbour_point->is_used_) {
             if( std::find(neighbourhood.begin(), neighbourhood.end(), next_neighbour_point) == neighbourhood.end() ){
-              std::cout << "Adding a point!" <<  std::endl;
               neighbourhood.push_back(next_neighbour_point);
-              //std::cout 
             }
           }
         }
 
       }
-      std::cout << "Size of neighbourhood vec 2: " << size << std::endl;
       size = neighbourhood.size();
 
       if( !neighbour_point->is_member_of_cluster_ ) {
         neighbour_point->is_member_of_cluster_ = true;
         current_cluster.push_back(*neighbour_point);
-         std::cout << "Adding a point to cluster!" <<  std::endl;
       }
     }
   }
@@ -423,7 +417,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.01; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.001; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
@@ -459,7 +453,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         if(apply_naive_clustering){
           all_clusters_per_bin_vector = create_clusters(current_bin_of_surfels);
         }else{
-          float eps = 0.05;
+          float eps = 0.005;
           uint8_t minPots = 3;
           //std::cout << "XX_C_XX STARTING DB SCAN WITH " << current_bin_of_surfels.size() << " surfels\n";
           all_clusters_per_bin_vector = create_DBSCAN_clusters(current_bin_of_surfels, eps, minPots);
@@ -489,37 +483,40 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
              // std::cout << "Cluster size " << current_cluster.size() << std::endl;
 
-/*
-              lamure::vec3f centroid_pos = compute_cluster_centroid_position(current_cluster);
-              auto angle_sorting_lambda = [&](point const& surfel_A,
-                                              point const& surfel_B){
-                                                   // std::cout << "Sorting, sorting cluster\n";
-                                                    lamure::vec3f surfel_position_A (surfel_A.pos_coordinates_[0], surfel_A.pos_coordinates_[1], surfel_A.pos_coordinates_[2]);
-                                                    lamure::vec3f surfel_position_B (surfel_B.pos_coordinates_[0], surfel_B.pos_coordinates_[1], surfel_B.pos_coordinates_[2]);
-                                                    lamure::vec3f centroid_surfel_vec_A = normalize(surfel_position_A - centroid_pos);
-                                                    lamure::vec3f centroid_surfel_vec_B = normalize(surfel_position_B - centroid_pos);
-                                                    auto plane_rotation_angle_A = dot(centroid_surfel_vec_A, direction_ref_vector);
-                                                    auto plane_rotation_angle_B = dot(centroid_surfel_vec_B, direction_ref_vector);
-                                                    //both vectors are in the lower half of the unit cirle => 
-                                                    //sort in descending order of angle b/n centroid_serfel_vector and reference vector
-                                                    if((surfel_position_A.z <= centroid_pos.z) && (surfel_position_B.z <= centroid_pos.z)){
-                                                      return plane_rotation_angle_A >= plane_rotation_angle_B; 
-                                                    }
-                                                    //both vectors are in the upper half of the unit cirle => 
-                                                    //sort in ascending order of angle b/n centroid_serfel_vector and reference vector
-                                                    else if((surfel_position_A.z >= centroid_pos.z) && (surfel_position_B.z >= centroid_pos.z)) {
+              /*if(!apply_naive_clustering){
+              
+                lamure::vec3f centroid_pos = compute_cluster_centroid_position(current_cluster);
+                auto angle_sorting_lambda = [&](point const& surfel_A,
+                                                point const& surfel_B){
+                                                     // std::cout << "Sorting, sorting cluster\n";
+                                                      lamure::vec3f surfel_position_A (surfel_A.pos_coordinates_[0], surfel_A.pos_coordinates_[1], surfel_A.pos_coordinates_[2]);
+                                                      lamure::vec3f surfel_position_B (surfel_B.pos_coordinates_[0], surfel_B.pos_coordinates_[1], surfel_B.pos_coordinates_[2]);
+                                                      lamure::vec3f centroid_surfel_vec_A = normalize(surfel_position_A - centroid_pos);
+                                                      lamure::vec3f centroid_surfel_vec_B = normalize(surfel_position_B - centroid_pos);
+                                                      auto plane_rotation_angle_A = dot(centroid_surfel_vec_A, direction_ref_vector);
+                                                      auto plane_rotation_angle_B = dot(centroid_surfel_vec_B, direction_ref_vector);
+                                                      //both vectors are in the lower half of the unit cirle => 
+                                                      //sort in descending order of angle b/n centroid_serfel_vector and reference vector
+                                                      if((surfel_position_A.z <= centroid_pos.z) && (surfel_position_B.z <= centroid_pos.z)){
+                                                        return plane_rotation_angle_A >= plane_rotation_angle_B; 
+                                                      }
+                                                      //both vectors are in the upper half of the unit cirle => 
+                                                      //sort in ascending order of angle b/n centroid_serfel_vector and reference vector
+                                                      else if((surfel_position_A.z >= centroid_pos.z) && (surfel_position_B.z >= centroid_pos.z)) {
 
-                                                      return plane_rotation_angle_A <= plane_rotation_angle_B;
-                                                    } 
-                                                    //vectors are in opposite halfs of the unit cirle => 
-                                                    //sort in descending order of z coordinate
-                                                    else {
-                                                      return surfel_position_A.z <= surfel_position_B.z;
-                                                    }
-                                              };
+                                                        return plane_rotation_angle_A <= plane_rotation_angle_B;
+                                                      } 
+                                                      //vectors are in opposite halfs of the unit cirle => 
+                                                      //sort in descending order of z coordinate
+                                                      else {
+                                                        return surfel_position_A.z <= surfel_position_B.z;
+                                                      }
+                                                };
 
-              std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
-*/
+                std::sort(current_cluster.begin(), current_cluster.end(), angle_sorting_lambda);
+
+              }*/
+
 
               if(!use_nurbs){ 
 
@@ -659,7 +656,8 @@ int main(int argc, char *argv[]) {
            output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).start.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION)<< line_data.at(i).start.pos_coordinates_[2] << "\n";
            output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
            //vertex duplication to emulate triangle
-           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
+           auto x_offset =  line_data.at(i).end.pos_coordinates_[0] / 1000000.0;
+           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] + x_offset<< " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
            output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
            vert_counter += 3;
           }
@@ -688,9 +686,6 @@ int main(int argc, char *argv[]) {
            output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
            output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
            output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
-           /*output_file << 80 << " ";
-           output_file << 190 << " ";
-           output_file << 230 << " ";*/
            output_file << (int) line_data.at(i).start.r_  << " ";
            output_file << (int) line_data.at(i).start.g_ << " ";
            output_file << (int) line_data.at(i).start.b_ << " ";  
@@ -705,10 +700,6 @@ int main(int argc, char *argv[]) {
            output_file << (int) line_data.at(i).start.r_  << " ";
            output_file << (int) line_data.at(i).start.g_ << " ";
            output_file << (int) line_data.at(i).start.b_ << " ";  
-           /*output_file << 30 << " ";
-           output_file << 150 << " ";
-           output_file << 100 << " ";
-           */
            output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
            #endif
           }
