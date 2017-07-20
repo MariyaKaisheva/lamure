@@ -251,6 +251,9 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
 
         if(all_clusters_per_bin_vector.size() > 0){
+          //
+          std::random_device rd;
+          std::mt19937 g(rd());
 
           for(auto& current_cluster : all_clusters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
@@ -292,7 +295,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
               //sampling step (reduction of points to chosen % of original amout of points per cluster)
 
-              float const sampling_rate = 0.5; //persentage points to remain after sampling
+              float const sampling_rate = 0.1; //persentage points to remain after sampling
+              unsigned const min_number_points_in_cell = 2;
 
               float min_x = std::numeric_limits<float>::max();
               float max_x = std::numeric_limits<float>::lowest();
@@ -303,12 +307,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
                 max_x = std::max(max_x, current_point.pos_coordinates_[0]);
                 min_z = std::min(min_z, current_point.pos_coordinates_[2]);
                 max_z = std::max(max_z, current_point.pos_coordinates_[2]);
-              }
-
-              //
-              std::random_device rd;
-              std::mt19937 g(rd());
-              
+              }             
        
               auto num_cells_x_direction = 10;
               auto num_cells_z_direction = 10;
@@ -319,9 +318,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
               //split all cluter points into respective grid cells
               for (auto & current_point : current_cluster){ //TODO check constness
-                auto x_index = std::min(num_cells_x_direction - 1, std::max(0, int( (current_point.pos_coordinates_[0] - min_x) / cell_width)) );
-                auto z_index = std::min(num_cells_z_direction - 1, std::max(0, int( (current_point.pos_coordinates_[2]- min_z) / cell_length) ) );
-                std::cout<< " Index X: " << x_index << " Index Z: " << z_index << "\n";
+                auto x_index = std::min(num_cells_x_direction - 1, std::max(0, int( (current_point.pos_coordinates_[0] - min_x) / cell_width)));
+                auto z_index = std::min(num_cells_z_direction - 1, std::max(0, int( (current_point.pos_coordinates_[2]- min_z) / cell_length)));
                 int64_t cell_index = z_index * num_cells_x_direction + x_index;
                 auto& current_cell = vector_of_cells[cell_index];
                 current_cell.push_back(&current_point);
@@ -330,10 +328,20 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
               int total_num_remaining_points = num_points_in_cluster * sampling_rate;
               std::vector<point> sampled_cluster;
               for (auto& current_cell : vector_of_cells) {
+
                 std::shuffle(current_cell.begin(), current_cell.end(), g);
                 uint64_t num_point_to_remain_in_cell = current_cell.size()*sampling_rate;
-                current_cell.resize(num_point_to_remain_in_cell);
-                current_cell.shrink_to_fit(); 
+
+                std::cout << "Size before: " << current_cell.size() << "\n";
+                std::cout << "min_number_points_in_cell: " << min_number_points_in_cell << std::endl;
+
+                if( min_number_points_in_cell < current_cell.size() ) {
+                  current_cell.resize(num_point_to_remain_in_cell);
+                  current_cell.shrink_to_fit(); 
+                } else {
+                  std::cout << "Did not reduce num points of this cell. " << "\n";
+                }
+                std::cout << "Size after: " << current_cell.size() << std::endl;
                 for(auto& current_point : current_cell){
                   sampled_cluster.push_back(*current_point);
                 }
@@ -342,17 +350,17 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
               std::cout << sampled_cluster.size() << " vs " << total_num_remaining_points << "\n";
               if(!use_nurbs){ 
 
-                uint32_t num_lines_to_push = (current_cluster.size()) - 1;
+                uint32_t num_lines_to_push = (sampled_cluster.size()) - 1;
 
                 for (uint line_idx = 0; line_idx < num_lines_to_push; ++line_idx) { 
-                  current_line.start = current_cluster.at(line_idx);
-                  current_line.end = current_cluster.at(line_idx+1);
+                  current_line.start = sampled_cluster.at(line_idx);
+                  current_line.end = sampled_cluster.at(line_idx+1);
                   current_line.length = clustering::compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
                                                           lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
                   line_data.push_back(current_line);
                 }
               }else {
-                std::vector<line> const line_data_from_sampled_curve = generate_lines_from_curve(current_cluster);
+                std::vector<line> const line_data_from_sampled_curve = generate_lines_from_curve(sampled_cluster);
 
                 for(auto& current_line : line_data_from_sampled_curve){
 
