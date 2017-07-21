@@ -1,16 +1,5 @@
 #include "clustering.h"
-
-
-float clustering::
-compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
-
-  lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z));
-  float result = sqrt(distance_vector.x*distance_vector.x +
-                      distance_vector.y*distance_vector.y +
-                      distance_vector.z*distance_vector.z);
-  return result;
-}
-
+#include "utils.h"
 
 std::pair<float, point> clustering::
 find_nearest_neighbour (point const& start_point, std::vector<point> const& all_points) {
@@ -21,7 +10,7 @@ find_nearest_neighbour (point const& start_point, std::vector<point> const& all_
 
   for (auto& p : all_points){
     if((!p.is_used_)){
-      float distance = compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
+      float distance = utils::compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
                                         lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]));
       if( distance > 0.0 && distance <= current_min ){
         current_min = distance;
@@ -46,7 +35,7 @@ find_near_neighbours(float max_distance, point const& start_point, std::vector<p
   std::vector<point*> neighbourhood;
   for(auto& p : all_points){
 
-    float distance = compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
+    float distance = utils::compute_distance(lamure::vec3f(p.pos_coordinates_[0], p.pos_coordinates_[1], p.pos_coordinates_[2]), 
                                       lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]));
     if(distance <= max_distance ){
       neighbourhood.push_back(&p);
