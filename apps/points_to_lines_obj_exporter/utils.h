@@ -3,6 +3,7 @@
 
 #include <lamure/types.h>
 
+#include <iostream>
 #include <vector>
 #include <limits>
 
@@ -45,6 +46,13 @@
 			bool is_member_of_cluster_;
 		};
 
+		struct line{
+		    point start;
+		    point end;
+		    float length;
+		};
+
+
 	namespace utils{
 
 		inline lamure::vec3f normalize (lamure::vec3f const& centroid_surfel_vec) {
@@ -69,6 +77,21 @@
 			                  distance_vector.z*distance_vector.z);
 			return result;
 		}
+
+		inline float compute_global_average_line_length(std::vector<line> const& all_lines) {
+			float avg_line_length = 0.0; 
+			if(all_lines.size() > 1){
+	  			for (auto const& line : all_lines){
+	    			avg_line_length += line.length; 
+	  			}
+	  			return avg_line_length/all_lines.size();     
+			}
+			else{
+	  			std::cout << "Total num lines < 1 \n"; 
+	  			return avg_line_length; 
+			}
+		}
+
 
 		inline std::vector<point> order_points(std::vector<point> const& cluster_of_points, bool euclidian_distance){
 			auto input_size = cluster_of_points.size();

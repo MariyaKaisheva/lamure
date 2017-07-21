@@ -25,6 +25,7 @@
 
 #include "clustering.h"
 #include "utils.h"
+#include "sampling.h"
 #include "color_hash_map.hpp"
 #include "math_wrapper.h"
 #include "nurbscurve.hpp"
@@ -46,16 +47,6 @@ char* get_cmd_option(char** begin, char** end, const std::string & option) {
 bool cmd_option_exists(char** begin, char** end, const std::string& option) {
     return std::find(begin, end, option) != end;
 }
-
-
-struct line{
-    point start;
-    point end;
-    float length;
-};
-
-
-//using line_data_t = std::vector<line>;
 
 //sort in descending order based on y coordinate value 
 bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
@@ -80,37 +71,13 @@ lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point
   return average_position;
 }
 
-
-
-float compute_global_average_line_length(std::vector<line> const& all_lines) {
-  float avg_line_length = 0.0; 
-  if(all_lines.size() > 1){
-    for (auto const& line : all_lines){
-      avg_line_length += line.length; 
-    }
-    return avg_line_length/all_lines.size();     
-  }
-  else{
-    std::cout << "Total num lines < 1 \n"; 
-    return avg_line_length; 
-  }
-}
-
-
 uint32_t current_cluster_id = 0;
 
 //using namespace gpucast::math;
-std::vector<line> generate_lines_from_curve (std::vector<point> const& cluster_of_points) {
+std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points) {
 
   //std::cout << "incoming cluster size: " << cluster_of_points.size() << std::endl;
-
-  //sort cluster points in correct order
-  bool use_euclidian_distance = true;
-  auto ordered_points = utils::order_points(cluster_of_points, use_euclidian_distance);
  
-  for(uint duplication_idx = 0; duplication_idx < 7; ++duplication_idx) {
-    ordered_points.push_back(ordered_points[duplication_idx]);
-  }
   //coppy cluster content to vector of control points
 
   std::vector<gpucast::math::point3d> control_points_vec(ordered_points.size());
@@ -241,69 +208,19 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           ++current_cluster_id;
         }
 
+          std::random_device rd;
+          std::mt19937 g(rd());
+
         std::cout << "all_clusters_per_bin: " <<  all_clusters_per_bin_vector.size() << " \n";
         line current_line; 
 
         if(all_clusters_per_bin_vector.size() > 0){
-          //
-          std::random_device rd;
-          std::mt19937 g(rd());
 
           for(auto& current_cluster : all_clusters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
               std::cout << "Cluster size " << current_cluster.size() << std::endl;
-
-              //sampling step (reduction of points to chosen % of original amout of points per cluster)
-              float const sampling_rate = 0.7; //persentage points to remain after sampling
-              unsigned const min_number_points_in_cell = 2;
-
-              float min_x = std::numeric_limits<float>::max();
-              float max_x = std::numeric_limits<float>::lowest();
-              float min_z = std::numeric_limits<float>::max();
-              float max_z = std::numeric_limits<float>::lowest();
-              for (auto & current_point : current_cluster){
-                min_x = std::min(min_x, current_point.pos_coordinates_[0]);
-                max_x = std::max(max_x, current_point.pos_coordinates_[0]);
-                min_z = std::min(min_z, current_point.pos_coordinates_[2]);
-                max_z = std::max(max_z, current_point.pos_coordinates_[2]);
-              }             
-       
-              auto num_cells_x_direction = 10;
-              auto num_cells_z_direction = 10;
-              auto cell_length = (max_z - min_z) / num_cells_z_direction;
-              auto cell_width = (max_x - min_x) / num_cells_x_direction;
-
-              std::vector<std::vector<point*>> vector_of_cells (num_cells_x_direction * num_cells_z_direction);
-
-              //split all cluter points into respective grid cells
-              for (auto & current_point : current_cluster){ //TODO check constness
-                auto x_index = std::min(num_cells_x_direction - 1, std::max(0, int( (current_point.pos_coordinates_[0] - min_x) / cell_width)));
-                auto z_index = std::min(num_cells_z_direction - 1, std::max(0, int( (current_point.pos_coordinates_[2]- min_z) / cell_length)));
-                int64_t cell_index = z_index * num_cells_x_direction + x_index;
-                auto& current_cell = vector_of_cells[cell_index];
-                current_cell.push_back(&current_point);
-              }
-             // auto num_points_in_cluster = current_cluster.size();
-              //int total_num_remaining_points = num_points_in_cluster * sampling_rate;
-              std::vector<point> sampled_cluster;
-              for (auto& current_cell : vector_of_cells) {
-
-                std::shuffle(current_cell.begin(), current_cell.end(), g);
-                uint64_t num_point_to_remain_in_cell = current_cell.size()*sampling_rate;
-
-                if( min_number_points_in_cell < current_cell.size() ) {
-                  current_cell.resize(num_point_to_remain_in_cell);
-                  current_cell.shrink_to_fit(); 
-                } else {
-                  //std::cout << "Did not reduce num points of this cell. " << "\n";
-                }
-                for(auto& current_point : current_cell){
-                  sampled_cluster.push_back(*current_point);
-                }
-              }
-
-              //std::cout << sampled_cluster.size() << " vs " << total_num_remaining_points << "\n";
-
+              
+              auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
               auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
               ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
               if(!use_nurbs){ 
@@ -318,7 +235,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
                   line_data.push_back(current_line);
                 }
               }else {
-                std::vector<line> const line_data_from_sampled_curve = generate_lines_from_curve(sampled_cluster);
+                std::vector<line> const line_data_from_sampled_curve = generate_lines_from_curve(ordered_sample_cluster);
 
                 for(auto& current_line : line_data_from_sampled_curve){
 
@@ -423,10 +340,10 @@ int main(int argc, char *argv[]) {
     bool apply_naive_clustering = !cmd_option_exists(argv, argv + argc, "--use_dbscan");
     auto line_data = generate_lines(surfels_vector, number_line_loops, use_nurbs, apply_naive_clustering);
     
-    #if 0
+    #if 1
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     //clean data
-    auto avg_line_length = compute_global_average_line_length(line_data); 
+    auto avg_line_length = utils::compute_global_average_line_length(line_data); 
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
                                    [&](line l){return l.length >= 4.8 * avg_line_length;}),
