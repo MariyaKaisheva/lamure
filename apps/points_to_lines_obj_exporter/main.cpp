@@ -241,9 +241,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
           ++current_cluster_id;
         }
 
-        std::cout << "all_clusters_per_bin_vector.size(): " <<  all_clusters_per_bin_vector.size() << " \n";
+        std::cout << "all_clusters_per_bin: " <<  all_clusters_per_bin_vector.size() << " \n";
         line current_line; 
-
 
         if(all_clusters_per_bin_vector.size() > 0){
           //
@@ -252,7 +251,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
           for(auto& current_cluster : all_clusters_per_bin_vector){
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
-             // std::cout << "Cluster size " << current_cluster.size() << std::endl;
+              std::cout << "Cluster size " << current_cluster.size() << std::endl;
 
               //sampling step (reduction of points to chosen % of original amout of points per cluster)
               float const sampling_rate = 0.7; //persentage points to remain after sampling
@@ -284,31 +283,29 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
                 auto& current_cell = vector_of_cells[cell_index];
                 current_cell.push_back(&current_point);
               }
-              auto num_points_in_cluster = current_cluster.size();
-              int total_num_remaining_points = num_points_in_cluster * sampling_rate;
+             // auto num_points_in_cluster = current_cluster.size();
+              //int total_num_remaining_points = num_points_in_cluster * sampling_rate;
               std::vector<point> sampled_cluster;
               for (auto& current_cell : vector_of_cells) {
 
                 std::shuffle(current_cell.begin(), current_cell.end(), g);
                 uint64_t num_point_to_remain_in_cell = current_cell.size()*sampling_rate;
 
-                std::cout << "Size before: " << current_cell.size() << "\n";
-
                 if( min_number_points_in_cell < current_cell.size() ) {
                   current_cell.resize(num_point_to_remain_in_cell);
                   current_cell.shrink_to_fit(); 
                 } else {
-                  std::cout << "Did not reduce num points of this cell. " << "\n";
+                  //std::cout << "Did not reduce num points of this cell. " << "\n";
                 }
-                std::cout << "Size after: " << current_cell.size() << std::endl;
                 for(auto& current_point : current_cell){
                   sampled_cluster.push_back(*current_point);
                 }
               }
 
-              std::cout << sampled_cluster.size() << " vs " << total_num_remaining_points << "\n";
+              //std::cout << sampled_cluster.size() << " vs " << total_num_remaining_points << "\n";
 
               auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
+              ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
               if(!use_nurbs){ 
 
                 uint32_t num_lines_to_push = (ordered_sample_cluster.size()) - 1;
@@ -335,10 +332,9 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         else{
           std::cout << "no clusters in the current layer \n"; 
         }
-
     }   
     //std::cout << "num Lines: " << line_data.size() << std::endl;
-    std::cout << "num line loops: " << total_num_clusters << std::endl;
+    std::cout << "total_num_clusters: " << total_num_clusters << std::endl;
     return line_data;   
 }
 

@@ -73,18 +73,23 @@
 		inline std::vector<point> order_points(std::vector<point> const& cluster_of_points, bool euclidian_distance){
 			auto input_size = cluster_of_points.size();
 			std::vector<point> ordered_result(input_size);
-			std::vector<bool> point_used_status_vec (input_size, false);
+			std::vector<int32_t> unused_nearest_neighbor_of(input_size, -1); //point_used_status_vec (input_size, false);
 			uint nearest_point_index = 0;
+
+			int32_t current_point_index = -1;
+
 			for (uint point_counter = 0; point_counter < input_size; ++point_counter) {
 
 				float current_shortest_distance = std::numeric_limits<float>::max();
 
 				ordered_result[point_counter] = (cluster_of_points[nearest_point_index]);
+				current_point_index = nearest_point_index;
 				auto& current_point = cluster_of_points[nearest_point_index];
 				auto start_coordinates = lamure::vec3f(current_point.pos_coordinates_[0], current_point.pos_coordinates_[1], current_point.pos_coordinates_[2]);
+
 				for (uint cluster_iterator = 0; cluster_iterator < input_size; ++cluster_iterator){
-					if(!point_used_status_vec[cluster_iterator]){
-						if(point_counter != cluster_iterator) {
+					if( -1 == unused_nearest_neighbor_of[cluster_iterator]){
+						if( (point_counter != cluster_iterator) && (cluster_iterator != unused_nearest_neighbor_of[current_point_index]) ) {
 							
 							auto& next_point = cluster_of_points[cluster_iterator];
 							auto end_coordinates = lamure::vec3f(next_point.pos_coordinates_[0], next_point.pos_coordinates_[1], next_point.pos_coordinates_[2]);
@@ -97,7 +102,7 @@
 						}
 					}
 				}
-				point_used_status_vec[nearest_point_index] = true;
+				unused_nearest_neighbor_of[nearest_point_index] = current_point_index; // make the current point idx the predecessor of the found nearest point
 			}
 
 
