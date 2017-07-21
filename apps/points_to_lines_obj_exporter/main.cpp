@@ -94,7 +94,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
 
   //std::cout << "control_points_vec size: " << control_points_vec.size() << std::endl;
 
-   uint degree = 6;
+   uint degree = 3;
 
    //num control points must be >= order (degree + 1)
    if (control_points_vec.size() < degree + 1) {
@@ -156,7 +156,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float threshold = 0.008; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold = 0.03; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
@@ -220,7 +220,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
             if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
               std::cout << "Cluster size " << current_cluster.size() << std::endl;
               
-              auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
+              //auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
+              auto sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, 40);
               auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
               ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
               if(!use_nurbs){ 
@@ -346,7 +347,7 @@ int main(int argc, char *argv[]) {
     auto avg_line_length = utils::compute_global_average_line_length(line_data); 
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
-                                   [&](line l){return l.length >= 4.8 * avg_line_length;}),
+                                   [&](line l){return l.length >= 10 * avg_line_length;}),
                     line_data.end());
     std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
     #endif

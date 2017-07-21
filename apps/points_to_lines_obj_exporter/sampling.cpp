@@ -1,17 +1,66 @@
 #include "sampling.h"
 
+#include <lamure/types.h>
+
+#include <algorithm>
+#include <limits>
   
 
-    void sampling::
-    apply_distance_optimization_sampling(){
+    std::vector<point> sampling::
+    apply_distance_optimization_sampling(std::vector<point> & input_cluster, uint num_remaining_points){
+      std::vector<point> sampled_cluster;
+      //sort points to  make sure we beggin with an outer most location
+      std::sort(input_cluster.begin(), input_cluster.end(), [](point const& A, point const& B){return A.pos_coordinates_[0] < B.pos_coordinates_[0];});
 
+      uint sampling_index = 0;
+      std::vector<bool> is_used_vec (input_cluster.size(), false);
+
+      //sample the starting point
+      sampled_cluster.push_back(input_cluster[0]);
+      is_used_vec[0] = true;
+
+      uint input_size = input_cluster.size();
+      for(uint counter = 0; counter < std::min(num_remaining_points, input_size); ++counter) {
+
+        float max_distance_to_candidate_point = 0.0;
+        int candidate_point_index = -1;
+
+        for(uint cluster_index = 0; cluster_index < input_size; ++cluster_index) {
+          float min_distance_to_sampled_point = std::numeric_limits<float>::max();
+          auto& current_point = input_cluster[cluster_index];
+          if(!is_used_vec[cluster_index]){
+              auto start_point_coord = lamure::vec3f(current_point.pos_coordinates_[0], current_point.pos_coordinates_[1], current_point.pos_coordinates_[2]);
+
+              // inner loop: get minimum distance of current point to "border point" of already selected set
+              for(auto& sampled_point : sampled_cluster){
+                auto end_point_coord = lamure::vec3f(sampled_point.pos_coordinates_[0], sampled_point.pos_coordinates_[1], sampled_point.pos_coordinates_[2]);
+                float current_distance = utils::compute_distance(start_point_coord, end_point_coord);
+
+                min_distance_to_sampled_point = std::min(min_distance_to_sampled_point, current_distance);
+              }
+
+              // check if the minimum distance was increased. in case it was: the candidate is better.x_index
+              if(max_distance_to_candidate_point < min_distance_to_sampled_point){
+                max_distance_to_candidate_point = min_distance_to_sampled_point;
+                candidate_point_index = cluster_index;
+              }
+
+          }
+        }
+        auto const& selected_point = input_cluster[candidate_point_index];
+        is_used_vec[candidate_point_index] = true;
+        sampled_cluster.push_back(selected_point);
+
+      }
+
+      return sampled_cluster;
     }
 
     std::vector<point> sampling::
     apply_random_gridbased_sampling(std::vector<point> & input_cluster, std::mt19937 g){
 
         //sampling step (reduction of points to chosen % of original amout of points per cluster)
-        float const sampling_rate = 0.7; //persentage points to remain after sampling
+        float const sampling_rate = 1.0; //persentage points to remain after sampling
         unsigned const min_number_points_in_cell = 2;
 
         float min_x = std::numeric_limits<float>::max();
