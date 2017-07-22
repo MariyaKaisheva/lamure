@@ -33,7 +33,7 @@
 
 #define DEFAULT_PRECISION 15
 #define OUTPUT_OBJ 1
-#define BIDIRECTIONAL 0
+
 
 class constrained_polyfit;
 
@@ -53,23 +53,6 @@ bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
     return A.pos_coordinates[1] < B.pos_coordinates[1];
 }
 
-lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster) {
-  float average_x = 0.0;
-  float average_y = 0.0;
-  float average_z = 0.0;
-  for(auto const& point : point_cluster){
-    average_x += point.pos_coordinates_[0];
-    average_y += point.pos_coordinates_[1];
-    average_z += point.pos_coordinates_[2];
-  }
-  auto number_of_surfels_per_layer = point_cluster.size();
-  average_x /= number_of_surfels_per_layer;
-  average_y /= number_of_surfels_per_layer;
-  average_z /= number_of_surfels_per_layer;
-  lamure::vec3f average_position(average_x, average_y, average_z);
-  
-  return average_position;
-}
 
 uint32_t current_cluster_id = 0;
 
@@ -156,6 +139,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
+    float avg_min_distance = utils::compute_average_min_point_distance(input_data);
+
     float threshold = 0.03; //TODO think of alternative for dynamic calculation of thershold value
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
@@ -253,6 +238,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     }   
     //std::cout << "num Lines: " << line_data.size() << std::endl;
     std::cout << "total_num_clusters: " << total_num_clusters << std::endl;
+    std::cout << "AVG_MIN_DISTANCE: " << avg_min_distance << "\n";
     return line_data;   
 }
 
@@ -368,8 +354,6 @@ int main(int argc, char *argv[]) {
            vert_counter += 3;
           }
 
-          //TODO connect first and last line segment of the loop
-        
           output_file.close();
       }
       else{
@@ -396,18 +380,6 @@ int main(int argc, char *argv[]) {
            output_file << (int) line_data.at(i).start.g_ << " ";
            output_file << (int) line_data.at(i).start.b_ << " ";  
            output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
-           #if BIDIRECTIONAL
-           output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.x << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.y << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_forward_normal.z << " ";
-           output_file << (int) line_data.at(i).start.r_  << " ";
-           output_file << (int) line_data.at(i).start.g_ << " ";
-           output_file << (int) line_data.at(i).start.b_ << " ";  
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
-           #endif
           }
         
           output_file.close();

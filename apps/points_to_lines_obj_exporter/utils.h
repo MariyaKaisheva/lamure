@@ -73,9 +73,27 @@
 		inline float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
 			lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z));
 			float result = sqrt(distance_vector.x*distance_vector.x +
-			                  distance_vector.y*distance_vector.y +
-			                  distance_vector.z*distance_vector.z);
+			                    distance_vector.y*distance_vector.y +
+			                    distance_vector.z*distance_vector.z);
 			return result;
+		}
+
+		inline lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster) {
+		  float average_x = 0.0;
+		  float average_y = 0.0;
+		  float average_z = 0.0;
+		  for(auto const& point : point_cluster){
+		    average_x += point.pos_coordinates_[0];
+		    average_y += point.pos_coordinates_[1];
+		    average_z += point.pos_coordinates_[2];
+		  }
+		  auto number_of_surfels_per_layer = point_cluster.size();
+		  average_x /= number_of_surfels_per_layer;
+		  average_y /= number_of_surfels_per_layer;
+		  average_z /= number_of_surfels_per_layer;
+		  lamure::vec3f average_position(average_x, average_y, average_z);
+		  
+		  return average_position;
 		}
 
 		inline float compute_global_average_line_length(std::vector<line> const& all_lines) {
@@ -92,6 +110,32 @@
 			}
 		}
 
+		inline float compute_average_min_point_distance(std::vector<xyzall_surfel_t> const& input_data){
+			float average_min_distance = 0.0f;
+
+			#pragma omp parallel for reduction( + : average_min_distance)
+			for(uint32_t outer_point_idx = 0; outer_point_idx < input_data.size(); ++outer_point_idx) {
+				auto const& start_point = input_data[outer_point_idx];
+				float current_min_distance = std::numeric_limits<float>::max();
+				for(uint32_t inner_point_idx = 0; inner_point_idx < input_data.size(); ++inner_point_idx) {
+				//for(auto& next_point : input_data) {
+					auto const& next_point = input_data[inner_point_idx];
+					if( outer_point_idx != inner_point_idx ) {
+						auto current_distance = compute_distance(lamure::vec3f(start_point.pos_coordinates[0], start_point.pos_coordinates[1], start_point.pos_coordinates[2]),
+																 lamure::vec3f(next_point.pos_coordinates[0], next_point.pos_coordinates[1], next_point.pos_coordinates[2]));
+						current_min_distance = std::min(current_distance, current_min_distance);
+					}
+
+				}
+
+				average_min_distance += current_min_distance;
+			}
+
+
+
+			return average_min_distance / input_data.size();
+
+		}
 
 		inline std::vector<point> order_points(std::vector<point> const& cluster_of_points, bool euclidian_distance){
 			auto input_size = cluster_of_points.size();
