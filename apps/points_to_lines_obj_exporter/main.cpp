@@ -23,6 +23,7 @@
 #include <lamure/ren/bvh.h>
 #include <lamure/ren/lod_stream.h>
 
+#include "input_output.h"
 #include "clustering.h"
 #include "utils.h"
 #include "sampling.h"
@@ -31,22 +32,8 @@
 #include "nurbscurve.hpp"
 #include "point.hpp"
 
-#define DEFAULT_PRECISION 15
-#define OUTPUT_OBJ 1
-
 
 class constrained_polyfit;
-
-char* get_cmd_option(char** begin, char** end, const std::string & option) {
-    char** it = std::find(begin, end, option);
-    if (it != end && ++it != end)
-        return *it;
-    return 0;
-}
-
-bool cmd_option_exists(char** begin, char** end, const std::string& option) {
-    return std::find(begin, end, option) != end;
-}
 
 //sort in descending order based on y coordinate value 
 bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
@@ -141,7 +128,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
     float avg_min_distance = utils::compute_average_min_point_distance(input_data);
 
-    float threshold = 0.03; //TODO think of alternative for dynamic calculation of thershold value
+    float threshold =  avg_min_distance / 2.0; 
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
@@ -158,8 +145,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     for(uint i = 0; i < number_line_loops; ++i) {
        
         float current_y_mean = (current_y_min + current_y_max) / 2.0;
-        //std::cout << "current_y_mean: " << current_y_mean << std::endl;
-        if(threshold > current_y_max - current_y_mean) {
+        if(threshold >= current_y_max - current_y_mean) {
           throw  std::runtime_error("density thershold might be too low");
         } 
         auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= current_y_mean - threshold) && (surfel.pos_coordinates[1] <= current_y_mean + threshold);};
@@ -177,9 +163,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         if(apply_naive_clustering){
           all_clusters_per_bin_vector = clustering::create_clusters(current_bin_of_surfels);
         }else{
-          float eps = 0.08;
+          float eps = avg_min_distance * 20;
           uint8_t minPots = 3;
-          //std::cout << "XX_C_XX STARTING DB SCAN WITH " << current_bin_of_surfels.size() << " surfels\n";
           all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels, eps, minPots);
         }
 
@@ -207,7 +192,9 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
               
               //auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
               auto sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, 40);
+              //auto& sampled_cluster = current_cluster;
               auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
+
               ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
               if(!use_nurbs){ 
 
@@ -244,8 +231,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
 int main(int argc, char *argv[]) {
     
-    if (argc == 1 || cmd_option_exists(argv, argv+argc, "-h") ||
-        !cmd_option_exists(argv, argv+argc, "-f")) {
+    if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
+        !io::cmd_option_exists(argv, argv+argc, "-f")) {
         
       std::cout << "Usage: " << argv[0] << " -f <input_file>" << std::endl <<
          "Parameters: " << std::endl <<
@@ -261,7 +248,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    std::string bvh_filename = std::string(get_cmd_option(argv, argv + argc, "-f"));
+    std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));
     std::string ext = bvh_filename.substr(bvh_filename.size()-3);
     if (ext.compare("bvh") != 0) {
         std::cout << "please specify a .bvh file as input" << std::endl;
@@ -270,8 +257,8 @@ int main(int argc, char *argv[]) {
 
     lamure::ren::bvh* bvh = new lamure::ren::bvh(bvh_filename);
     int32_t depth = -1;
-    if(cmd_option_exists(argv, argv+argc, "-d")){
-      depth = atoi(get_cmd_option(argv, argv+argc, "-d"));
+    if(io::cmd_option_exists(argv, argv+argc, "-d")){
+      depth = atoi(io::get_cmd_option(argv, argv+argc, "-d"));
       if(depth > int(bvh->get_depth()) || depth < 0){
         depth = bvh->get_depth();
       }
@@ -280,11 +267,11 @@ int main(int argc, char *argv[]) {
       depth = bvh->get_depth();
     }
 
-    bool write_obj_file = !cmd_option_exists(argv, argv + argc, "--write_xyz_points");
+    bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
 
     unsigned long number_line_loops = 25; //TODO make number dependent on model size??
-    if(cmd_option_exists(argv, argv+argc, "-l")){
-     number_line_loops = atoi(get_cmd_option(argv, argv+argc, "-l")); //user input
+    if(io::cmd_option_exists(argv, argv+argc, "-l")){
+     number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
     }
     
     std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".obj";
@@ -323,8 +310,8 @@ int main(int argc, char *argv[]) {
                                         surfels_vector.end(),
                                         [](xyzall_surfel_t s){return s.radius_ <= 0.0;}),
                          surfels_vector.end());
-    bool use_nurbs = cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
-    bool apply_naive_clustering = !cmd_option_exists(argv, argv + argc, "--use_dbscan");
+    bool use_nurbs = io::cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
+    bool apply_naive_clustering = !io::cmd_option_exists(argv, argv + argc, "--use_dbscan");
     auto line_data = generate_lines(surfels_vector, number_line_loops, use_nurbs, apply_naive_clustering);
     
     #if 1
@@ -338,56 +325,12 @@ int main(int argc, char *argv[]) {
     std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
     #endif
 
-    if(write_obj_file) {
-      std::ofstream output_file(obj_filename);
-      unsigned long vert_counter = 1;
-
-      if (output_file.is_open()){
-          for (uint i = 0; i < line_data.size(); ++i){
-
-           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).start.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).start.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION)<< line_data.at(i).start.pos_coordinates_[2] << "\n";
-           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
-           //vertex duplication to emulate triangle
-           auto x_offset =  line_data.at(i).end.pos_coordinates_[0] / 1000000.0;
-           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  line_data.at(i).end.pos_coordinates_[0] + x_offset<< " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << line_data.at(i).end.pos_coordinates_[2] << "\n";
-           output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
-           vert_counter += 3;
-          }
-
-          output_file.close();
-      }
-      else{
-        std::cout << "Cannot open output file to write to! \n";
-      }
-
+    if(write_obj_file){
+      io::write_output(write_obj_file, obj_filename, line_data, bvh);
+    }else{
+      io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
     }
-    else {
-      //consider hidden translation
-      const scm::math::vec3f& translation = bvh->get_translation();
-      std::ofstream output_file(xyz_all_filename);
-      lamure::vec3f const fixed_upward_normal(0.0, 1.0, 0.0);
-      lamure::vec3f const fixed_forward_normal(0.0, 0.0, 1.0);
-      float const fixed_radius(0.02);
-      if (output_file.is_open()){
-          for (uint i = 0; i < line_data.size(); ++i){
-           output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
-           output_file << (int) line_data.at(i).start.r_  << " ";
-           output_file << (int) line_data.at(i).start.g_ << " ";
-           output_file << (int) line_data.at(i).start.b_ << " ";  
-           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
-          }
         
-          output_file.close();
-      }
-      else{
-        std::cout << "Cannot open output file to write to! \n";
-      }
-    }
    
     std::cout << "ok \n";
 
@@ -396,6 +339,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-
-
