@@ -63,10 +63,10 @@
 
       }
 
-      std::cout << "Before returning\n";
       return sampled_cluster;
     }
 
+    
     std::vector<point> sampling::
     apply_random_gridbased_sampling(std::vector<point> & input_cluster, std::mt19937 g){
 

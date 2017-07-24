@@ -53,6 +53,36 @@
 		};
 
 
+		class grid_cell
+		{
+			public:
+				float min_corner_coord_[3];
+				float max_corner_coord_[3];
+				float wall_size_;
+				std::vector<point>	content_;
+				bool compute_intersection(float* sphere_origin, float radius){
+					float squared_distance = 0.0;
+					for(uint i = 0; i < 3; ++i){
+						float temp_value = 0.0;
+						if(sphere_origin[i] < min_corner_coord_[i] ){
+							temp_value = (min_corner_coord_[i] - sphere_origin[i]) * 
+										 (min_corner_coord_[i] - sphere_origin[i]);
+						}
+				         
+				        if ( sphere_origin[i] > max_corner_coord_[i] )
+				        {
+							temp_value = (sphere_origin[i] - max_corner_coord_[i]) * 
+										 (sphere_origin[i] - max_corner_coord_[i]);
+				        }
+
+						squared_distance += temp_value;
+					}
+
+					return squared_distance <= (radius * radius);
+				}		
+		};
+
+
 	namespace utils{
 
 		inline lamure::vec3f normalize (lamure::vec3f const& centroid_surfel_vec) {
@@ -118,7 +148,6 @@
 				auto const& start_point = input_data[outer_point_idx];
 				float current_min_distance = std::numeric_limits<float>::max();
 				for(uint32_t inner_point_idx = 0; inner_point_idx < input_data.size(); ++inner_point_idx) {
-				//for(auto& next_point : input_data) {
 					auto const& next_point = input_data[inner_point_idx];
 					if( outer_point_idx != inner_point_idx ) {
 						auto current_distance = compute_distance(lamure::vec3f(start_point.pos_coordinates[0], start_point.pos_coordinates[1], start_point.pos_coordinates[2]),
@@ -135,6 +164,73 @@
 
 			return average_min_distance / input_data.size();
 
+		}
+
+		inline std::vector<grid_cell> find_candidate_cells(std::vector<grid_cell> const& all_cells, float* sphere_origin, float radius) {
+			std::vector<grid_cell> candidates;
+
+			for(auto const& curren_cell : all_cells) {
+				if(curren_cell.content_.size() > 0) {
+					if(curent_cell.compute_intersection(sphere_origin, radius)){
+						candidates.push_back(curren_cell);
+					}
+				}
+			}
+			std::cout << candidates.size() << " - num candidate cells \n";
+			return candidates;
+		}
+
+		/*inline std::vector<grid_cell> generate_cells(std::vector<xyzall_surfel_t> const& input_data) {
+			float cell_size = cbrt(ceil(input_data.size() / 1000));
+			float min_x = std::numeric_limits<float>::max();
+	        float max_x = std::numeric_limits<float>::lowest();
+	       	float min_y = std::numeric_limits<float>::max();
+	        float max_y = std::numeric_limits<float>::lowest();
+	        float min_z = std::numeric_limits<float>::max();
+	        float max_z = std::numeric_limits<float>::lowest();
+	        for (auto & current_point : input_data){
+	          min_x = std::min(min_x, current_point.pos_coordinates[0]);
+	          max_x = std::max(max_x, current_point.pos_coordinates[0]);
+	          min_y = std::min(min_z, current_point.pos_coordinates[1]);
+	          max_y = std::max(max_z, current_point.pos_coordinates[1]);
+	          min_z = std::min(min_z, current_point.pos_coordinates[2]);
+	          max_z = std::max(max_z, current_point.pos_coordinates[2]);
+	        } 
+
+	       uint8_t num_cells_x_direction = fabs(max_x - min_x)/cell_size;
+	       uint8_t num_cells_y_direction = fabs(max_y - min_y)/cell_size;
+	       uint8_t num_cells_z_direction = fabs(max_z - min_z)/cell_size;
+
+	       	std::vector<grid_cell> cells_vec(num_cells_x_direction * num_cells_y_direction * num_cells_z_direction);
+
+	       	for(auto& current_surfel : input_data){
+
+	       	}
+
+	       	return cells_vec;
+		} */
+
+		inline float compute_average_min_point_distance_gridbased(std::vector<xyzall_surfel_t> const& input_data){
+			float average_min_distance = 0.0f;
+			auto cells_vec = generate_cells(input_data);
+			auto  cell_wall_size = cells_vec[0]->wall_size_;
+			float search_radius = sqrt(2)*cell_wall_size;
+			for(auto const& current_point : input_data){
+				auto start_coord = lamure::vec3f(current_point.pos_coordinates[0], current_point.pos_coordinates[1], current_point.pos_coordinates[2]);
+				float current_min_distance = std::numeric_limits<float>::max();
+				auto candidate_cells = find_candidate_cells(cells_vec, current_point.pos_coordinates, search_radius);
+				for (auto const& curent_cell : candidate_cells) {
+					for(auto const& cell_point : curren_cell->content_){
+						auto end_coord = lamure::vec3f(cell_point.pos_coordinates[0], cell_point.pos_coordinates[1], cell_point.pos_coordinates[2]);
+						auto current_distance = compute_distance(start_coord, end_coord);
+						min_distance = std::min(min_distance, current_distance);
+					}
+
+				} 
+				average_min_distance += min_distance;
+			}
+
+			return average_min_distance / input_data.size();
 		}
 
 		inline std::vector<point> order_points(std::vector<point> const& cluster_of_points, bool euclidian_distance){
