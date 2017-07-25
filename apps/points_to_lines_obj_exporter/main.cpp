@@ -126,7 +126,9 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    float avg_min_distance = utils::compute_average_min_point_distance(input_data);
+    //float avg_min_distance = utils::compute_average_min_point_distance(input_data);
+    float avg_min_distance = utils::compute_average_min_point_distance_gridbased(input_data);
+    
 
     float threshold =  avg_min_distance / 2.0; 
 
