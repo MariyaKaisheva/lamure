@@ -147,7 +147,7 @@
 		inline float compute_average_min_point_distance(std::vector<xyzall_surfel_t> const& input_data){
 			float average_min_distance = 0.0f;
 
-			//#pragma omp parallel for reduction( + : average_min_distance)
+			#pragma omp parallel for reduction( + : average_min_distance)
 			for(uint32_t outer_point_idx = 0; outer_point_idx < input_data.size(); ++outer_point_idx) {
 				auto const& start_point = input_data[outer_point_idx];
 				float current_min_distance = std::numeric_limits<float>::max();
@@ -282,8 +282,11 @@
 			/*auto cells_vec = */
 			generate_cells(input_data, inital_search_radius, cells_vec);
 			std::cout << search_radius << " search_radius \n";
-			for(auto const& current_point : input_data){
-				//std::cout << "NEXT DATA POINT \n"; 
+
+			#pragma omp parallel for reduction (+ : average_min_distance)
+			//for(auto const& current_point : input_data){
+			  for(uint point_counter = 0; point_counter < input_data.size(); ++point_counter){
+			  	auto const& current_point = input_data[point_counter];
 				search_radius = inital_search_radius; 
 				auto start_coord = lamure::vec3f(current_point.pos_coordinates[0], current_point.pos_coordinates[1], current_point.pos_coordinates[2]);
 				float min_distance = std::numeric_limits<float>::max();
@@ -311,7 +314,7 @@
 						}
 					}
 
-				} 
+				}
 
 				average_min_distance += min_distance;
 			}
