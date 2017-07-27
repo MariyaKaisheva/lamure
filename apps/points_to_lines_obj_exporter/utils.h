@@ -52,6 +52,15 @@
 		    float length;
 		};
 
+		struct bounding_rect{
+			float min_x;
+			float max_x;
+			float min_y;
+			float max_y;
+			float min_z;
+			float max_z;
+		};
+
 
 		class grid_cell
 		{
@@ -147,7 +156,7 @@
 		inline float compute_average_min_point_distance(std::vector<xyzall_surfel_t> const& input_data){
 			float average_min_distance = 0.0f;
 
-			#pragma omp parallel for reduction( + : average_min_distance)
+			//#pragma omp parallel for reduction( + : average_min_distance)
 			for(uint32_t outer_point_idx = 0; outer_point_idx < input_data.size(); ++outer_point_idx) {
 				auto const& start_point = input_data[outer_point_idx];
 				float current_min_distance = std::numeric_limits<float>::max();
@@ -184,21 +193,16 @@
 			//return candidates;
 		}
 
-		inline void generate_cells(std::vector<xyzall_surfel_t> const& input_data, float& suggested_search_radius, std::vector<grid_cell>& out_cells ) {
-			//equal amount of cells in every direction
-			//with size to hold appyimately 1000 data points (assuming uniform point distribution)
-			uint8_t num_cells_pro_dim =  ceil(cbrt(input_data.size() / 1000));
-			std::cout << "num_cells_pro_dim: " << cbrt(input_data.size() / 1000) << " !!!" << std::endl; 
-			std::cout << "Total Num cells: " << num_cells_pro_dim * num_cells_pro_dim * num_cells_pro_dim << std::endl; 
+		inline bounding_rect compute_bounding_corners (std::vector<xyzall_surfel_t> const& input_data){
 			float min_x = std::numeric_limits<float>::max();
-	        float max_x = std::numeric_limits<float>::lowest();
+			float max_x = std::numeric_limits<float>::lowest();
 	       	float min_y = std::numeric_limits<float>::max();
 	        float max_y = std::numeric_limits<float>::lowest();
 	        float min_z = std::numeric_limits<float>::max();
 	        float max_z = std::numeric_limits<float>::lowest();
 
-	        //compute corner points for the gird structure 
-	        for (auto & current_point : input_data){
+			//compute corner points for the gird structure 
+	        for (auto const& current_point : input_data){
 	          min_x = std::min(min_x, current_point.pos_coordinates[0]);
 	          max_x = std::max(max_x, current_point.pos_coordinates[0]);
 	          min_y = std::min(min_z, current_point.pos_coordinates[1]);
@@ -206,6 +210,48 @@
 	          min_z = std::min(min_z, current_point.pos_coordinates[2]);
 	          max_z = std::max(max_z, current_point.pos_coordinates[2]);
 	        } 
+
+	        bounding_rect corner_coordinates;
+	        corner_coordinates.min_x = min_x;
+	        corner_coordinates.max_x = max_x;
+	        corner_coordinates.min_y = min_y;
+	        corner_coordinates.max_y = max_y;
+	        corner_coordinates.min_z = min_z;
+	        corner_coordinates.max_z = max_z;
+
+	        return corner_coordinates;
+		}
+
+		inline void generate_cells(std::vector<xyzall_surfel_t> const& input_data, float& suggested_search_radius, std::vector<grid_cell>& out_cells ) {
+			//equal amount of cells in every direction
+			//with size to hold appyimately 1000 data points (assuming uniform point distribution)
+			uint8_t num_cells_pro_dim =  ceil(cbrt(input_data.size() / 1000));
+			std::cout << "num_cells_pro_dim: " << cbrt(input_data.size() / 1000) << " !!!" << std::endl; 
+			std::cout << "Total Num cells: " << num_cells_pro_dim * num_cells_pro_dim * num_cells_pro_dim << std::endl; 
+			/*float min_x = std::numeric_limits<float>::max();
+	        float max_x = std::numeric_limits<float>::lowest();
+	       	float min_y = std::numeric_limits<float>::max();
+	        float max_y = std::numeric_limits<float>::lowest();
+	        float min_z = std::numeric_limits<float>::max();
+	        float max_z = std::numeric_limits<float>::lowest();
+
+	        //compute corner points for the gird structure 
+	       for (auto & current_point : input_data){
+	          min_x = std::min(min_x, current_point.pos_coordinates[0]);
+	          max_x = std::max(max_x, current_point.pos_coordinates[0]);
+	          min_y = std::min(min_z, current_point.pos_coordinates[1]);
+	          max_y = std::max(max_z, current_point.pos_coordinates[1]);
+	          min_z = std::min(min_z, current_point.pos_coordinates[2]);
+	          max_z = std::max(max_z, current_point.pos_coordinates[2]);
+	        } */
+
+	        auto bounding_rect = compute_bounding_corners(input_data);
+	        float min_x = bounding_rect.min_x;
+			float max_x = bounding_rect.max_x;
+			float min_y = bounding_rect.min_y;
+			float max_y = bounding_rect.max_y;
+			float min_z = bounding_rect.min_z;
+			float max_z = bounding_rect.max_z;
 
 	       float cell_width = fabs(max_x - min_x) / num_cells_pro_dim;
 	       float cell_height = fabs(max_y - min_y) / num_cells_pro_dim;
@@ -283,7 +329,7 @@
 			generate_cells(input_data, inital_search_radius, cells_vec);
 			std::cout << search_radius << " search_radius \n";
 
-			#pragma omp parallel for reduction (+ : average_min_distance)
+			//#pragma omp parallel for reduction (+ : average_min_distance)
 			//for(auto const& current_point : input_data){
 			  for(uint point_counter = 0; point_counter < input_data.size(); ++point_counter){
 			  	auto const& current_point = input_data[point_counter];

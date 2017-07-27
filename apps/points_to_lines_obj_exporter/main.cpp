@@ -24,6 +24,7 @@
 #include <lamure/ren/lod_stream.h>
 
 #include "input_output.h"
+#include "binning.h"
 #include "clustering.h"
 #include "utils.h"
 #include "sampling.h"
@@ -64,7 +65,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
 
   //std::cout << "control_points_vec size: " << control_points_vec.size() << std::endl;
 
-   uint degree = 3;
+   uint degree = 4;
 
    //num control points must be >= order (degree + 1)
    if (control_points_vec.size() < degree + 1) {
@@ -94,7 +95,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   float parameter_t = degree;
-  float sampling_step = 0.5;
+  float sampling_step = 0.3;
   //int ppoint_id_counter = 0;
   while(parameter_t < last_knot_value - sampling_step){
 
@@ -130,27 +131,30 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     float avg_min_distance = utils::compute_average_min_point_distance_gridbased(input_data);
     
 
-    float threshold =  avg_min_distance / 2.0; 
+    float distance_threshold =  avg_min_distance / 2.0; 
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
 
     auto num_elements = input_data.size();
     auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
-    //std::cout << "height: " << height << std::endl; 
+ 
     float const offset = height / number_line_loops;
     int total_num_clusters = 0;
 
     float current_y_min = input_data.at(0).pos_coordinates[1];
     float current_y_max = current_y_min + offset;
 
-    for(uint i = 0; i < number_line_loops; ++i) {
+    auto bins_vec = binning::generate_bins(input_data, distance_threshold);
+
+    for (auto const& current_bin_of_surfels : bins_vec){
+   // for(uint i = 0; i < number_line_loops; ++i) {
        
-        float current_y_mean = (current_y_min + current_y_max) / 2.0;
-        if(threshold >= current_y_max - current_y_mean) {
+        /*float current_y_mean = (current_y_min + current_y_max) / 2.0;
+        if(distance_threshold >= current_y_max - current_y_mean) {
           throw  std::runtime_error("density thershold might be too low");
         } 
-        auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= current_y_mean - threshold) && (surfel.pos_coordinates[1] <= current_y_mean + threshold);};
+        auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= current_y_mean - distance_threshold) && (surfel.pos_coordinates[1] <= current_y_mean + distance_threshold);};
         auto it = std::copy_if(input_data.begin(), input_data.end(), current_bin_of_surfels.begin(), copy_lambda);
         current_bin_of_surfels.resize(std::distance(current_bin_of_surfels.begin(), it));
         current_y_min = current_y_max;
@@ -158,7 +162,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         
         for (auto& surfel : current_bin_of_surfels) {
           surfel.pos_coordinates[1] = current_y_mean; //project all surfels for a given y_mean value to a single plane
-        }
+        }*/
         
 
         std::vector<clusters_t> all_clusters_per_bin_vector;

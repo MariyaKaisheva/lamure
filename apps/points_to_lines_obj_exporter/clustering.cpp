@@ -77,12 +77,12 @@ expand_cluster(point const& current_point, std::vector<point*>& neighbourhood, s
 }
 
 std::vector<clusters_t> clustering::
-create_DBSCAN_clusters (bins_t& all_surfels_per_layer, float eps, uint8_t min_points){
+create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t min_points){
   //create vector of points, containg all surfels per layer in point format
   std::vector<point> all_points_per_layer;
   uint32_t id_counter = 0; 
-  for (auto& s: all_surfels_per_layer){
-    point current_point(s.pos_coordinates, id_counter, s.r_, s.g_, s.b_);
+  for (auto const& s: all_surfels_per_layer){
+    point current_point( const_cast<float*>(s.pos_coordinates), id_counter, s.r_, s.g_, s.b_);
     all_points_per_layer.push_back(current_point);
     ++id_counter;
   }
@@ -121,13 +121,13 @@ create_DBSCAN_clusters (bins_t& all_surfels_per_layer, float eps, uint8_t min_po
 
 
 std::vector<clusters_t> clustering::
-create_clusters (bins_t& all_surfels_per_layer){
+create_clusters (bins_t const& all_surfels_per_layer){
    
   //create vector of points, containg all surfels per layer in point format
   std::vector<point> all_points_per_layer;
   int32_t id_counter = 0; 
-  for (auto& s: all_surfels_per_layer){
-    point current_point(s.pos_coordinates, id_counter, s.r_, s.g_, s.b_, false);
+  for (auto const& s: all_surfels_per_layer){
+    point current_point( const_cast<float*>(s.pos_coordinates), id_counter, s.r_, s.g_, s.b_, false);
     all_points_per_layer.push_back(current_point);
     ++id_counter;
   }

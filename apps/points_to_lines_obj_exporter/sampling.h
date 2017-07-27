@@ -4,7 +4,6 @@
 #include "utils.h"
 
 #include <vector>
-//#include <random>
 
 		namespace sampling {
 			std::vector<point> apply_distance_optimization_sampling(std::vector<point> & input_cluster, uint num_remaining_points);
