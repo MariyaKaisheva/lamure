@@ -131,7 +131,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     float avg_min_distance = utils::compute_average_min_point_distance_gridbased(input_data);
     
 
-    float distance_threshold =  avg_min_distance * 10.0; 
+    float distance_threshold =  avg_min_distance * 4.0; 
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
@@ -197,8 +197,8 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
               std::cout << "Cluster size " << current_cluster.size() << std::endl;
               
               //auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
-              auto sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, 40);
-              //auto& sampled_cluster = current_cluster;
+              //auto sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, 40);
+              auto& sampled_cluster = current_cluster;
               auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
 
               ordered_sample_cluster.push_back(ordered_sample_cluster[0]);

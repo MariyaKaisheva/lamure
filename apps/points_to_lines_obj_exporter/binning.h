@@ -19,7 +19,7 @@
 		void evaluate_content_to_binary(bounding_rect const& bounding_corners, uint const resolution){
 			uint const bool_vec_size = resolution * resolution; 
 			std::cout << "RESOLUTION: " << bool_vec_size << "\n";
-			std::vector<bool> temp_binary_image (bool_vec_size, false);
+			std::vector<uint32_t> temp_binary_image (bool_vec_size, 0);
 			auto cell_length = (bounding_corners.max_z - bounding_corners.min_z) / resolution;
         	auto cell_width = (bounding_corners.max_x - bounding_corners.min_x) / resolution;
         	uint const resolution_minus_one = resolution - 1;
@@ -27,7 +27,7 @@
 	          auto x_index = std::min(resolution_minus_one, uint(std::max(0, int( (current_surfel.pos_coordinates[0] - bounding_corners.min_x) / cell_width)) ) );
 	          auto z_index = std::min(resolution_minus_one, uint(std::max(0, int( (current_surfel.pos_coordinates[2]- bounding_corners.min_z) / cell_length)) ) );
 	          int64_t cell_index = z_index * resolution + x_index;
-	          temp_binary_image[cell_index] = true;
+	          ++temp_binary_image[cell_index];// = true;
 	        }
 
 	        std::cout << "EVALUATING CONTENT TO BINARY\n";
@@ -63,7 +63,8 @@
 		float lower_bound_size_;
 		float upper_bound_size_;
 		std::vector<xyzall_surfel_t> content_;
-		std::vector<bool> binary_image_;
+		std::vector<uint32_t> binary_image_;
+		uint32_t bin_depth = 0;
 
 
 	private:
@@ -73,6 +74,8 @@
 		auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= (pos_along_slicing_axis_ - lower_bound_size_) ) && (surfel.pos_coordinates[1] <= (pos_along_slicing_axis_ + upper_bound_size_) );};
     	auto it = std::copy_if(input_surfels.begin(), input_surfels.end(), content_.begin(), copy_lambda);
     	content_.resize(std::distance(content_.begin(), it));
+
+
 	}
 
 	};
