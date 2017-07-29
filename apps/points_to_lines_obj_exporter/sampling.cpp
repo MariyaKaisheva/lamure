@@ -90,10 +90,10 @@
         auto cell_length = (max_z - min_z) / num_cells_z_direction;
         auto cell_width = (max_x - min_x) / num_cells_x_direction;
 
-        std::vector<std::vector<point*>> vector_of_cells (num_cells_x_direction * num_cells_z_direction);
+        std::vector<std::vector<point const*>> vector_of_cells (num_cells_x_direction * num_cells_z_direction);
 
         //split all cluter points into respective grid cells
-        for (auto & current_point : input_cluster){ //TODO check constness
+        for (auto const& current_point : input_cluster){ //TODO check constness
           auto x_index = std::min(num_cells_x_direction - 1, std::max(0, int( (current_point.pos_coordinates_[0] - min_x) / cell_width)));
           auto z_index = std::min(num_cells_z_direction - 1, std::max(0, int( (current_point.pos_coordinates_[2]- min_z) / cell_length)));
           int64_t cell_index = z_index * num_cells_x_direction + x_index;

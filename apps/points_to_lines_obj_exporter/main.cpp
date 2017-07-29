@@ -131,7 +131,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     float avg_min_distance = utils::compute_average_min_point_distance_gridbased(input_data);
     
 
-    float distance_threshold =  avg_min_distance / 2.0; 
+    float distance_threshold =  avg_min_distance * 10.0; 
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
@@ -145,7 +145,7 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
     float current_y_min = input_data.at(0).pos_coordinates[1];
     float current_y_max = current_y_min + offset;
 
-    auto bins_vec = binning::generate_bins(input_data, distance_threshold);
+    auto bins_vec = binning::generate_all_bins(input_data, distance_threshold);
 
     for (auto const& current_bin_of_surfels : bins_vec){
    // for(uint i = 0; i < number_line_loops; ++i) {
@@ -167,11 +167,11 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
         std::vector<clusters_t> all_clusters_per_bin_vector;
         if(apply_naive_clustering){
-          all_clusters_per_bin_vector = clustering::create_clusters(current_bin_of_surfels);
+          all_clusters_per_bin_vector = clustering::create_clusters(current_bin_of_surfels.content_);
         }else{
           float eps = avg_min_distance * 20;
           uint8_t minPots = 3;
-          all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels, eps, minPots);
+          all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels.content_, eps, minPots);
         }
 
         //color clusters
