@@ -205,8 +205,8 @@
 	        for (auto const& current_point : input_data){
 	          min_x = std::min(min_x, current_point.pos_coordinates[0]);
 	          max_x = std::max(max_x, current_point.pos_coordinates[0]);
-	          min_y = std::min(min_z, current_point.pos_coordinates[1]);
-	          max_y = std::max(max_z, current_point.pos_coordinates[1]);
+	          min_y = std::min(min_y, current_point.pos_coordinates[1]);
+	          max_y = std::max(max_y, current_point.pos_coordinates[1]);
 	          min_z = std::min(min_z, current_point.pos_coordinates[2]);
 	          max_z = std::max(max_z, current_point.pos_coordinates[2]);
 	        } 
