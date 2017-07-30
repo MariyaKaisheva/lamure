@@ -32,6 +32,7 @@
 #include "math_wrapper.h"
 #include "nurbscurve.hpp"
 #include "point.hpp"
+#include "alpha-shapes_wrapper.h"
 
 
 class constrained_polyfit;
@@ -95,7 +96,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   float parameter_t = degree;
-  float sampling_step = 0.3;
+  float sampling_step = 0.6;
   //int ppoint_id_counter = 0;
   while(parameter_t < last_knot_value - sampling_step){
 
@@ -109,11 +110,11 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
 
     point current_start_point(pos_st_point);
     point current_end_point(pos_end_point);
-    line current_line;
-    current_line.start = current_start_point;
+    line current_line(current_start_point, current_end_point);
+    /*current_line.start = current_start_point;
     current_line.end = current_end_point;
     current_line.length = utils::compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
-                                           lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2])); 
+                                           lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2])); */
     line_segments_vec.push_back(current_line);
     //parameter_t += sampling_step;
   }
@@ -135,6 +136,10 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
+
+
+    //TEST -alpha shapes
+    std::vector<line> alpha_line_data;
 
     auto num_elements = input_data.size();
     auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
@@ -192,16 +197,28 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
 
         if(all_clusters_per_bin_vector.size() > 0){
 
-          for(auto& current_cluster : all_clusters_per_bin_vector){
-            if(current_cluster.size() > 1) { //at least 2 vertices per cluster are need for one complete line 
-              std::cout << "Cluster size " << current_cluster.size() << std::endl;
+          for(auto const& current_cluster : all_clusters_per_bin_vector){
+            auto cluster_size = current_cluster.size();
+            if(cluster_size > 1) { //at least 2 vertices per cluster are need for one complete line 
+              std::cout << "Cluster size " << cluster_size << std::endl;
               
               //auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
               //auto sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, 40);
               auto& sampled_cluster = current_cluster;
               auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
 
-              ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
+              ////////////TEST alpha shapes/////////////////////////////////////////
+              float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
+              std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
+              alpha::do_input_conversion(cgal_points, current_cluster);
+              auto line_segments = alpha::generate_alpha_shape(cgal_points);
+              auto current_alpha_line_data =  alpha::do_output_conversion_to_line_segments(line_segments, cluster_y_coord);
+              alpha_line_data.insert(alpha_line_data.end(), current_alpha_line_data.begin(), current_alpha_line_data.end());
+               ////////////TEST alpha shapes/////////////////////////////////////////
+
+             // ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
+
+              //auto ordered_sample_cluster = alpha::do_output_conversion_to_sorted_points(line_segments, cluster_y_coord);
               if(!use_nurbs){ 
 
                 uint32_t num_lines_to_push = (ordered_sample_cluster.size()) - 1;
@@ -224,15 +241,16 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
               ++total_num_clusters;
             }
           }
+          
         }
         else{
           std::cout << "no clusters in the current layer \n"; 
         }
     }   
-    //std::cout << "num Lines: " << line_data.size() << std::endl;
     std::cout << "total_num_clusters: " << total_num_clusters << std::endl;
     std::cout << "AVG_MIN_DISTANCE: " << avg_min_distance << "\n";
-    return line_data;   
+    //return line_data;   
+   return alpha_line_data;
 }
 
 int main(int argc, char *argv[]) {
@@ -320,7 +338,7 @@ int main(int argc, char *argv[]) {
     bool apply_naive_clustering = !io::cmd_option_exists(argv, argv + argc, "--use_dbscan");
     auto line_data = generate_lines(surfels_vector, number_line_loops, use_nurbs, apply_naive_clustering);
     
-    #if 1
+    #if 0
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     //clean data
     auto avg_line_length = utils::compute_global_average_line_length(line_data); 

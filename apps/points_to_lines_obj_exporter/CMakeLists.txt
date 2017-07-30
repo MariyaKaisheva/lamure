@@ -11,7 +11,11 @@ include_directories(${REND_INCLUDE_DIR}
                     )
 
 include_directories(SYSTEM ${SCHISM_INCLUDE_DIRS}
-						   ${Boost_INCLUDE_DIR})
+						   ${Boost_INCLUDE_DIR}
+                           ${CGAL_INCLUDE_DIR}
+                           ${GMP_INCLUDE_DIR} 
+                           ${MPFR_INCLUDE_DIR}
+                           )
 
 
 InitApp(${CMAKE_PROJECT_NAME}_points_to_lines_obj_exporter)
@@ -27,5 +31,9 @@ target_link_libraries(${PROJECT_NAME}
     ${OpenGL_LIBRARIES} 
     ${GLUT_LIBRARY}
     "/home/vajo3185/Programming/lamure/external/alglib/cpp/lib/libAlglib.so"
+    ${GMP_LIBRARY}
+    ${MPFR_LIBRARY}
+    optimized ${CGAL_LIBRARY} debug ${CGAL_LIBRARY_DEBUG}
+    optimized ${CGAL_CORE_LIBRARY} debug ${CGAL_CORE_LIBRARY_DEBUG}
     )
 

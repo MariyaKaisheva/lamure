@@ -46,7 +46,26 @@
 			bool is_member_of_cluster_;
 		};
 
+		namespace utils{
+			inline float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
+				lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z));
+				float result = sqrt(distance_vector.x*distance_vector.x +
+				                    distance_vector.y*distance_vector.y +
+				                    distance_vector.z*distance_vector.z);
+				return result;
+			}
+		}
+
+
 		struct line{
+			line() : start(point()), end(point()), length(0.0f){}
+			line(point const& start_point, point const& end_point, float length) : start(start_point), end(end_point), length(length) {}
+			line(point const& start_point, point const& end_point) : start(start_point), end(end_point) {
+				auto l= utils::compute_distance(lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]),
+                                           		lamure::vec3f(end_point.pos_coordinates_[0], end_point.pos_coordinates_[1], end_point.pos_coordinates_[2]));
+				length = l;
+			}
+
 		    point start;
 		    point end;
 		    float length;
@@ -112,14 +131,6 @@
 		  return product;
 		}
 
-
-		inline float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
-			lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z));
-			float result = sqrt(distance_vector.x*distance_vector.x +
-			                    distance_vector.y*distance_vector.y +
-			                    distance_vector.z*distance_vector.z);
-			return result;
-		}
 
 		inline lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster) {
 		  float average_x = 0.0;
