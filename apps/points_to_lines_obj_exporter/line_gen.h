@@ -1,7 +1,11 @@
 #ifndef LINE_GEN_H
 #define LINE_GEN_H
 
+
+#include "nurbscurve.hpp"
 #include "clustering.h"
+
+#include <queue>
 
 
 //sort in descending order based on y coordinate value 
@@ -9,12 +13,25 @@ bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
     return A.pos_coordinates[1] < B.pos_coordinates[1];
 }
 
-inline std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points) {
+struct line_approximation_job{
+	float start_t_;
+	float end_t_;
+	gpucast::math::point3d approximated_point_;
 
-  //std::cout << "incoming cluster size: " << cluster_of_points.size() << std::endl;
+	line_approximation_job (float start_t, float end_t, gpucast::math::point3d middle_point) : start_t_(start_t), end_t_(end_t), approximated_point_(middle_point) {}
+};
+
+inline gpucast::math::point3d get_midpoint(gpucast::math::point3d const& start_point, gpucast::math::point3d const& end_point) {
+	auto x = (start_point[0] + end_point[0]) / 2.0;
+  	auto y = (start_point[1] + end_point[1]) / 2.0;
+  	auto z = (start_point[2] + end_point[2]) / 2.0;
+  	auto middle_point = gpucast::math::point3d(x, y, z, 1);
+  	return middle_point;
+}
+
+inline std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points) {
  
   //coppy cluster content to vector of control points
-
   std::vector<gpucast::math::point3d> control_points_vec(ordered_points.size());
   
   #pragma omp parallel for
@@ -58,29 +75,86 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
 
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
-  float parameter_t = degree;
-  float sampling_step = 0.6;
-  //int ppoint_id_counter = 0;
-  while(parameter_t < last_knot_value - sampling_step){
+  
+  #if 1 //dynamic sampling step parameter
+ 	//intial points
+  	float initial_t = degree; 
+  	float final_t = last_knot_value;
+  	
+  	auto start_point = nurbs_curve.evaluate(initial_t);
+  	auto end_point = nurbs_curve.evaluate(final_t);
+  	auto approximated_middle_point = get_midpoint(start_point, end_point); 
 
-    auto st_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
-    parameter_t += sampling_step;
-    auto end_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
-    
 
-    float pos_st_point[3] = {st_sampled_curve_point[0], st_sampled_curve_point[1], st_sampled_curve_point[2]};
-    float pos_end_point[3] = {end_sampled_curve_point[0], end_sampled_curve_point[1], end_sampled_curve_point[2]};
+  	//uint8_t const inital_vec_size = 2;
+  	std::vector<gpucast::math::point3d> evaluated_points_vec(2);
+  	evaluated_points_vec.push_back(start_point);
+  	evaluated_points_vec.push_back(end_point);
 
-    point current_start_point(pos_st_point);
-    point current_end_point(pos_end_point);
-    line current_line(current_start_point, current_end_point);
-    /*current_line.start = current_start_point;
-    current_line.end = current_end_point;
-    current_line.length = utils::compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
-                                           lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2])); */
-    line_segments_vec.push_back(current_line);
-    //parameter_t += sampling_step;
-  }
+  	std::queue<line_approximation_job> working_queue;
+
+  	//create inital approximation jobs
+  	line_approximation_job j_0(initial_t, final_t, approximated_middle_point);
+  	working_queue.push(j_0);
+ 
+  	float error_threshold = 0.01;
+  	while(!working_queue.empty()){
+  		auto current_job = working_queue.front();
+  		working_queue.pop();
+
+  		auto start_point = nurbs_curve.evaluate(current_job.start_t_);
+  		auto end_point = nurbs_curve.evaluate(current_job.end_t_);
+	  	float middle_t = (current_job.start_t_ + current_job.end_t_) / 2.0;
+	  	auto middle_point = nurbs_curve.evaluate(middle_t);
+	  	auto & approx_middle_point = current_job.approximated_point_;
+	  	auto start_coord = lamure::vec3f(middle_point[0], middle_point[1], middle_point[2]);
+	  	auto end_coord = lamure::vec3f(approx_middle_point[0], approx_middle_point[1], approx_middle_point[2]);
+	  	auto error = utils::compute_distance(start_coord, end_coord);
+	  	if (error > error_threshold) {
+	  		//prepare 2 new jobs
+	  		auto approximated_middle_point_1 = get_midpoint(start_point, nurbs_curve.evaluate(middle_t));
+	  		line_approximation_job j_1(current_job.start_t_, middle_t, approximated_middle_point_1);
+
+  			auto approximated_middle_point_2 = get_midpoint(nurbs_curve.evaluate(middle_t), end_point);
+  			line_approximation_job j_2(middle_t, current_job.end_t_, approximated_middle_point_2);
+
+  			working_queue.push(j_1);
+  			working_queue.push(j_2);
+
+	  	}else{//push data for final storage
+	  		//convert to point type used by line struk
+	  		float start_coord_arr[3] = {start_point[0], start_point[1], start_point[2]};
+	  		float end_coord_arr[3] = {end_point[0], end_point[1], end_point[2]};
+	  		point start_point_(start_coord_arr);
+	  		point end_point_(end_coord_arr);
+
+	  		line closely_approximated_line(start_point_, end_point_);
+	  		line_segments_vec.push_back(closely_approximated_line);
+	  	}
+  	}
+
+  #else //fixed sampling step parameter
+	  float parameter_t = degree;
+	  float sampling_step = 0.6;
+	  
+	  while(parameter_t < last_knot_value - sampling_step){
+
+	    auto st_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
+	    parameter_t += sampling_step;
+	    auto end_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
+	    
+
+	    float pos_st_point[3] = {st_sampled_curve_point[0], st_sampled_curve_point[1], st_sampled_curve_point[2]};
+	    float pos_end_point[3] = {end_sampled_curve_point[0], end_sampled_curve_point[1], end_sampled_curve_point[2]};
+
+	    point current_start_point(pos_st_point);
+	    point current_end_point(pos_end_point);
+	    line current_line(current_start_point, current_end_point);
+	    line_segments_vec.push_back(current_line);
+	  }
+  #endif
+
+  std::cout << "NUM line segments: " << line_segments_vec.size() << "\n";
 
   //return sampled points as vector of line segments (lines)
   return line_segments_vec;

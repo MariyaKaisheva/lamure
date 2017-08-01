@@ -29,7 +29,6 @@
 #include "sampling.h"
 #include "color_hash_map.hpp"
 #include "math_wrapper.h"
-#include "nurbscurve.hpp"
 #include "point.hpp"
 #include "alpha-shapes_wrapper.h"
 #include "line_gen.h"
