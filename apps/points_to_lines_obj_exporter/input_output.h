@@ -20,6 +20,19 @@ namespace io{
 	    return std::find(begin, end, option) != end;
 	}
 
+	inline void print_help_message(char** argv){
+		 std::cout << "Usage: " << argv[0] << " -f <input_file>" << std::endl <<
+         "Parameters: " << std::endl <<
+         "\t-f: specify .bvh input file" << std::endl <<
+         "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
+         "\t-l: (optional) specify max number of slicing layers; vaule should be more than 5" << std::endl <<
+         "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
+         "\t--apply_nurbs_fitting: (optional); set flag for curve-fitting to TRUE" << std::endl << 
+         "\t--use_dbscan: (optional); set DBSCAN as prefered clustering algorithm" << std::endl << 
+         "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
+         std::endl;
+	}
+
 	inline void write_output(bool write_obj_file, std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh){
 		if(write_obj_file) {
 	      std::ofstream output_file(output_filename);
@@ -71,6 +84,8 @@ namespace io{
 	        std::cout << "Cannot open output file to write to! \n";
 	      }
 	    }
+
+	    std::cout << "Output: " << output_filename << std::endl;
 	}
 }
 

@@ -55,7 +55,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
   std::vector<gpucast::math::point3d> control_points_vec(ordered_points.size());
   
   #pragma omp parallel for
-  for (uint cluster_index = 0; cluster_index < ordered_points.size(); ++cluster_index){
+  for (uint32_t cluster_index = 0; cluster_index < ordered_points.size(); ++cluster_index){
     auto x = ordered_points.at(cluster_index).pos_coordinates_[0];
     auto y = ordered_points.at(cluster_index).pos_coordinates_[1];
     auto z = ordered_points.at(cluster_index).pos_coordinates_[2];
@@ -66,7 +66,7 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
 
   //std::cout << "control_points_vec size: " << control_points_vec.size() << std::endl;
 
-   uint degree = 4;
+   uint32_t degree = 4;
 
    //num control points must be >= order (degree + 1)
    if (control_points_vec.size() < degree + 1) {
@@ -79,11 +79,11 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
  // auto knot_vec_size = control_points_vec.size() + degree + 1; //knot vector should be of size: num. control points + order
   
   float last_knot_value = 0;
-  for(uint knot_counter = 0; knot_counter < control_points_vec.size(); ++knot_counter){ //
+  for(uint32_t knot_counter = 0; knot_counter < control_points_vec.size(); ++knot_counter){ //
       knot_vec.push_back(double(knot_counter));
       last_knot_value = knot_counter;
   } 
-  for(uint i = 0; i <= degree; ++i){ 
+  for(uint32_t i = 0; i <= degree; ++i){ 
       knot_vec.push_back(double(last_knot_value));
   } 
 
@@ -123,60 +123,45 @@ std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_p
   return line_segments_vec;
 }
 
-std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsigned long number_line_loops, bool use_nurbs, bool apply_naive_clustering){
+std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_loops, bool use_nurbs, bool apply_naive_clustering){
     
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
     lamure::vec3f direction_ref_vector (1.0, 0.0, 0.0);
-    //float avg_min_distance = utils::compute_average_min_point_distance(input_data);
-    float avg_min_distance = utils::compute_average_min_point_distance_gridbased(input_data);
-    
 
+
+    //inital global computation for whole model 
+    //with size to holding appyimately 1000 data points (assuming uniform point distribution)
+    uint8_t num_cells_pro_dim =  ceil(cbrt(input_data.size() / 1000)); 
+    float avg_min_distance = utils::compute_avg_min_distance(input_data, num_cells_pro_dim, num_cells_pro_dim, num_cells_pro_dim);
+  
     float distance_threshold =  avg_min_distance * 4.0; 
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
     std::vector<line> line_data;
 
-
     //TEST -alpha shapes
     std::vector<line> alpha_line_data;
 
     auto num_elements = input_data.size();
-    auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
- 
-    float const offset = height / number_line_loops;
+    //auto height = input_data.at(num_elements-1).pos_coordinates[1] - input_data.at(0).pos_coordinates[1];
+
     int total_num_clusters = 0;
 
-    float current_y_min = input_data.at(0).pos_coordinates[1];
-    float current_y_max = current_y_min + offset;
+    //adaptive binning (distributes input surfels into descrite num. bins and projects them onto 2d plane)
+    auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops);
 
-    auto bins_vec = binning::generate_all_bins(input_data, distance_threshold);
-
-    for (auto const& current_bin_of_surfels : bins_vec){
-   // for(uint i = 0; i < number_line_loops; ++i) {
-       
-        /*float current_y_mean = (current_y_min + current_y_max) / 2.0;
-        if(distance_threshold >= current_y_max - current_y_mean) {
-          throw  std::runtime_error("density thershold might be too low");
-        } 
-        auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= current_y_mean - distance_threshold) && (surfel.pos_coordinates[1] <= current_y_mean + distance_threshold);};
-        auto it = std::copy_if(input_data.begin(), input_data.end(), current_bin_of_surfels.begin(), copy_lambda);
-        current_bin_of_surfels.resize(std::distance(current_bin_of_surfels.begin(), it));
-        current_y_min = current_y_max;
-        current_y_max += offset;
-        
-        for (auto& surfel : current_bin_of_surfels) {
-          surfel.pos_coordinates[1] = current_y_mean; //project all surfels for a given y_mean value to a single plane
-        }*/
-        
+    for (auto const& current_bin_of_surfels : bins_vec){    
 
         std::vector<clusters_t> all_clusters_per_bin_vector;
+        float avg_min_distance_per_bin = utils::compute_avg_min_distance(current_bin_of_surfels.content_, num_cells_pro_dim, 1, num_cells_pro_dim);
+
         if(apply_naive_clustering){
           all_clusters_per_bin_vector = clustering::create_clusters(current_bin_of_surfels.content_);
         }else{
-          float eps = avg_min_distance * 20;
-          uint8_t minPots = 3;
-          all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels.content_, eps, minPots);
+          float eps = avg_min_distance_per_bin * 20.0;
+          uint8_t minPoints = 3;
+          all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels.content_, eps, minPoints);
         }
 
         //color clusters
@@ -205,20 +190,23 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
               //auto sampled_cluster = sampling::apply_random_gridbased_sampling (current_cluster, g);
               //auto sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, 40);
               auto& sampled_cluster = current_cluster;
-              auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
+             //auto ordered_sample_cluster = utils::order_points(sampled_cluster, true);
 
               ////////////TEST alpha shapes/////////////////////////////////////////
               float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
               std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
               alpha::do_input_conversion(cgal_points, current_cluster);
               auto line_segments = alpha::generate_alpha_shape(cgal_points);
-              auto current_alpha_line_data =  alpha::do_output_conversion_to_line_segments(line_segments, cluster_y_coord);
-              alpha_line_data.insert(alpha_line_data.end(), current_alpha_line_data.begin(), current_alpha_line_data.end());
+              std::cout << "After A-s" << std::endl;
+             // auto current_alpha_line_data =  alpha::do_output_conversion_to_line_segments(line_segments, cluster_y_coord);
+             // alpha_line_data.insert(alpha_line_data.end(), current_alpha_line_data.begin(), current_alpha_line_data.end());
                ////////////TEST alpha shapes/////////////////////////////////////////
 
              // ordered_sample_cluster.push_back(ordered_sample_cluster[0]);
+              auto cleaned_cluster =  alpha::do_output_conversion(line_segments, cluster_y_coord);
+               //std::cout << "After output conversion" << std::endl;
+              auto ordered_sample_cluster = utils::order_points(cleaned_cluster, true);
 
-              //auto ordered_sample_cluster = alpha::do_output_conversion_to_sorted_points(line_segments, cluster_y_coord);
               if(!use_nurbs){ 
 
                 uint32_t num_lines_to_push = (ordered_sample_cluster.size()) - 1;
@@ -248,26 +236,33 @@ std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, unsig
         }
     }   
     std::cout << "total_num_clusters: " << total_num_clusters << std::endl;
-    std::cout << "AVG_MIN_DISTANCE: " << avg_min_distance << "\n";
-    //return line_data;   
-   return alpha_line_data;
+  
+    return line_data;   
+   //return alpha_line_data;
 }
 
-int main(int argc, char *argv[]) {
-    
+
+  
+
+#include <CGAL/Cartesian.h>
+#include <CGAL/MP_Float.h>
+#include <CGAL/Quotient.h>
+#include <CGAL/Arr_segment_traits_2.h>
+#include <CGAL/Arrangement_2.h>
+
+typedef CGAL::Quotient<CGAL::MP_Float> Number_type;
+typedef CGAL::Cartesian<Number_type> Kernel;
+typedef CGAL::Arr_segment_traits_2<Kernel> Traits_2;
+typedef Traits_2::Point_2 Point_2;
+typedef Traits_2::X_monotone_curve_2 Segment_2;
+typedef CGAL::Arrangement_2<Traits_2> Arrangement_2;
+
+int main(int argc, char** argv)
+{
+  
     if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
         !io::cmd_option_exists(argv, argv+argc, "-f")) {
-        
-      std::cout << "Usage: " << argv[0] << " -f <input_file>" << std::endl <<
-         "Parameters: " << std::endl <<
-         "\t-f: specify .bvh input file" << std::endl <<
-         "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
-         "\t-l: (optional) specify number of slycing layers; default value is 20" << std::endl <<
-         "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
-         "\t--apply_nurbs_fitting: (optional); set flag for curve-fitting to TRUE" << std::endl << 
-         "\t--use_dbscan: (optional); set DBSCAN as prefered clustering algorithm" << std::endl << 
-         "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
-         std::endl;
+        io::print_help_message(argv);
       return 0;
     }
 
@@ -292,24 +287,11 @@ int main(int argc, char *argv[]) {
     }
 
     bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
-
-    unsigned long number_line_loops = 25; //TODO make number dependent on model size??
+    uint32_t max_number_line_loops = 250; 
     if(io::cmd_option_exists(argv, argv+argc, "-l")){
-     number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
+     max_number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
     }
     
-    std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".obj";
-    std::string xyz_all_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(number_line_loops) + ".xyz_all";
-    std::cout << "input: " << bvh_filename << std::endl;
-   
-    std::cout << "output: ";
-    if(write_obj_file) {
-      std::cout << obj_filename; 
-    }
-    else {
-      std::cout << xyz_all_filename;
-    }
-    std::cout << std::endl;
 
     std::string lod_filename = bvh_filename.substr(0, bvh_filename.size()-3) + "lod";
     lamure::ren::lod_stream* in_access = new lamure::ren::lod_stream();
@@ -336,11 +318,10 @@ int main(int argc, char *argv[]) {
                          surfels_vector.end());
     bool use_nurbs = io::cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
     bool apply_naive_clustering = !io::cmd_option_exists(argv, argv + argc, "--use_dbscan");
-    auto line_data = generate_lines(surfels_vector, number_line_loops, use_nurbs, apply_naive_clustering);
+    auto line_data = generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_naive_clustering);
     
-    #if 0
+    #if 0 //remove potential oulier line segments; 
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
-    //clean data
     auto avg_line_length = utils::compute_global_average_line_length(line_data); 
     line_data.erase(std::remove_if(line_data.begin(),
                                    line_data.end(),
@@ -349,13 +330,16 @@ int main(int argc, char *argv[]) {
     std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
     #endif
 
+    std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(max_number_line_loops) + ".obj";
+    std::string xyz_all_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(max_number_line_loops) + ".xyz_all";
+   
+
     if(write_obj_file){
       io::write_output(write_obj_file, obj_filename, line_data, bvh);
     }else{
       io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
     }
         
-   
     std::cout << "ok \n";
 
     delete in_access;

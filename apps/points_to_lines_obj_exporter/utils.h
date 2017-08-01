@@ -164,7 +164,7 @@
 			}
 		}
 
-		inline float compute_average_min_point_distance(std::vector<xyzall_surfel_t> const& input_data){
+		/*inline float compute_average_min_point_distance(std::vector<xyzall_surfel_t> const& input_data){
 			float average_min_distance = 0.0f;
 
 			#pragma omp parallel for reduction( + : average_min_distance)
@@ -188,7 +188,7 @@
 
 			return average_min_distance / input_data.size();
 
-		}
+		}*/
 
 		inline void find_candidate_cells(std::vector<grid_cell>& all_cells, const float* sphere_origin, float radius, std::vector<grid_cell*>& out_candidates) {
 			//std::vector<grid_cell> candidates;
@@ -233,28 +233,12 @@
 	        return corner_coordinates;
 		}
 
-		inline void generate_cells(std::vector<xyzall_surfel_t> const& input_data, float& suggested_search_radius, std::vector<grid_cell>& out_cells ) {
-			//equal amount of cells in every direction
-			//with size to hold appyimately 1000 data points (assuming uniform point distribution)
-			uint8_t num_cells_pro_dim =  ceil(cbrt(input_data.size() / 1000));
-			std::cout << "num_cells_pro_dim: " << cbrt(input_data.size() / 1000) << " !!!" << std::endl; 
-			std::cout << "Total Num cells: " << num_cells_pro_dim * num_cells_pro_dim * num_cells_pro_dim << std::endl; 
-			/*float min_x = std::numeric_limits<float>::max();
-	        float max_x = std::numeric_limits<float>::lowest();
-	       	float min_y = std::numeric_limits<float>::max();
-	        float max_y = std::numeric_limits<float>::lowest();
-	        float min_z = std::numeric_limits<float>::max();
-	        float max_z = std::numeric_limits<float>::lowest();
-
-	        //compute corner points for the gird structure 
-	       for (auto & current_point : input_data){
-	          min_x = std::min(min_x, current_point.pos_coordinates[0]);
-	          max_x = std::max(max_x, current_point.pos_coordinates[0]);
-	          min_y = std::min(min_z, current_point.pos_coordinates[1]);
-	          max_y = std::max(max_z, current_point.pos_coordinates[1]);
-	          min_z = std::min(min_z, current_point.pos_coordinates[2]);
-	          max_z = std::max(max_z, current_point.pos_coordinates[2]);
-	        } */
+		inline void generate_cells(std::vector<xyzall_surfel_t> const& input_data, 
+								   float& suggested_search_radius, 
+								   std::vector<grid_cell>& out_cells, 
+								   int const num_cells_pro_dim_x, 
+								   int const num_cells_pro_dim_y,
+								   int const num_cells_pro_dim_z) {
 
 	        auto bounding_rect = compute_bounding_corners(input_data);
 	        float min_x = bounding_rect.min_x;
@@ -264,20 +248,34 @@
 			float min_z = bounding_rect.min_z;
 			float max_z = bounding_rect.max_z;
 
-	       float cell_width = fabs(max_x - min_x) / num_cells_pro_dim;
-	       float cell_height = fabs(max_y - min_y) / num_cells_pro_dim;
-	       float cell_depth = fabs(max_z - min_z) / num_cells_pro_dim;
+	       float cell_width = fabs(max_x - min_x) / num_cells_pro_dim_x;
+	       float cell_height = fabs(max_y - min_y) / num_cells_pro_dim_y;
+	       float cell_depth = fabs(max_z - min_z) / num_cells_pro_dim_z;
 	       //one forth of shortest cell edge
-	       suggested_search_radius = (std::min( cell_width, std::min(cell_height, cell_depth))) / 4.0;
+
+	       float comparison_values[3] = {cell_width, cell_height, cell_depth};
+
+	       suggested_search_radius = std::numeric_limits<float>::max();
+
+	       for(uint32_t dim_idx = 0; dim_idx < 3; ++dim_idx) {
+	       	  if(0.0 == comparison_values[dim_idx]) {
+	            comparison_values[dim_idx] = std::numeric_limits<float>::max();
+	       	  }
+
+	       	  suggested_search_radius = std::min(suggested_search_radius, comparison_values[dim_idx]);
+	       }
+
+	       suggested_search_radius /= 4.0;
+
 
 	       	//std::vector<grid_cell> cells_vec(num_cells_pro_dim * num_cells_pro_dim * num_cells_pro_dim);
 
-	        size_t num_cells = num_cells_pro_dim * num_cells_pro_dim * num_cells_pro_dim;
+	        size_t num_cells = num_cells_pro_dim_x * num_cells_pro_dim_y * num_cells_pro_dim_z;
 	        out_cells.reserve(num_cells);
 
-	        for( size_t z_idx = 0; z_idx < num_cells_pro_dim; ++z_idx) {
-	        	for( size_t y_idx = 0; y_idx < num_cells_pro_dim; ++y_idx) {
-	        		for( size_t x_idx = 0; x_idx < num_cells_pro_dim; ++x_idx) {
+	        for( size_t z_idx = 0; z_idx < num_cells_pro_dim_z; ++z_idx) {
+	        	for( size_t y_idx = 0; y_idx < num_cells_pro_dim_y; ++y_idx) {
+	        		for( size_t x_idx = 0; x_idx < num_cells_pro_dim_x; ++x_idx) {
 
 	        			float cell_min_x = min_x + x_idx * cell_width;
 	        			float cell_max_x = cell_min_x + cell_width;
@@ -303,13 +301,25 @@
 	        }
 
 	       	for(auto& current_surfel : input_data){
-	       	  auto x_index = std::min(num_cells_pro_dim - 1, std::max(0, int( (current_surfel.pos_coordinates[0] - min_x) / cell_width)));
-	       	  auto y_index = std::min(num_cells_pro_dim - 1, std::max(0, int( (current_surfel.pos_coordinates[1] - min_y) / cell_height)));
-	          auto z_index = std::min(num_cells_pro_dim - 1, std::max(0, int( (current_surfel.pos_coordinates[2] - min_z) / cell_depth)));
+	       	  int32_t x_index = 0; 
+	       	  int32_t y_index = 0;
+	          int32_t z_index = 0;
 
-	          //std::cout << "x_index " << x_index << " y_index " << y_index << " z_index " << z_index << "\n";
+	          if( 0.0 != cell_width ) {
+	          	x_index = std::min(num_cells_pro_dim_x - 1, std::max(0, int32_t( (current_surfel.pos_coordinates[0] - min_x) / cell_width)));
+	      	  }
+
+	          if( 0.0 != cell_height ) {
+	          	y_index = std::min(num_cells_pro_dim_y - 1, std::max(0, int32_t( (current_surfel.pos_coordinates[1] - min_y) / cell_height)));
+	      	  }
+
+	          if( 0.0 != cell_depth ) {
+	          	z_index = std::min(num_cells_pro_dim_z - 1, std::max(0, int32_t( (current_surfel.pos_coordinates[2] - min_z) / cell_depth)));
+	      	  }
+
+	          std::cout << "x_index " << x_index << " y_index " << y_index << " z_index " << z_index << "\n";
 	          
-	          int64_t cell_index = z_index * num_cells_pro_dim * num_cells_pro_dim + y_index * num_cells_pro_dim  + x_index;
+	          int64_t cell_index = z_index * num_cells_pro_dim_z * num_cells_pro_dim_y + y_index * num_cells_pro_dim_y  + x_index;
 	          auto& current_cell = out_cells[cell_index];
 	          current_cell.content_.push_back(current_surfel);
 	       	}
@@ -330,16 +340,14 @@
 			}
 		}
 
-		inline float compute_average_min_point_distance_gridbased(std::vector<xyzall_surfel_t> const& input_data){
+		inline float compute_avg_min_distance(std::vector<xyzall_surfel_t> const& input_data, uint32_t const num_cells_pro_dim_x, uint32_t const num_cells_pro_dim_y, uint32_t const num_cells_pro_dim_z){
 			float average_min_distance = 0.0f;
 			float search_radius = 0.0f;
 			float inital_search_radius = 0.0f;
 
 			std::vector<grid_cell> cells_vec;
-			/*auto cells_vec = */
-			generate_cells(input_data, inital_search_radius, cells_vec);
-			std::cout << search_radius << " search_radius \n";
-
+			generate_cells(input_data, inital_search_radius, cells_vec, num_cells_pro_dim_x, num_cells_pro_dim_y, num_cells_pro_dim_z);
+			
 			#pragma omp parallel for reduction (+ : average_min_distance)
 			  for(uint point_counter = 0; point_counter < input_data.size(); ++point_counter){
 			  	auto const& current_point = input_data[point_counter];
@@ -353,11 +361,10 @@
 
 				while(not_enough_candidates){
 					search_radius +=  1.5*inital_search_radius;
+					std::cout << search_radius << std::endl;
 					candidate_cells.clear();
 					find_candidate_cells(cells_vec, current_point.pos_coordinates, search_radius, candidate_cells);
 					not_enough_candidates = test_for_sufficency(candidate_cells);
-					//std::cout << "Expanding search with r =  " << search_radius << std::endl;
-					//std::cout << "NUM CELLS TO VISIT: " << candidate_cells.size() << std::endl;
 				}
 
 				for (auto const& curent_cell : candidate_cells) {

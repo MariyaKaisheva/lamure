@@ -68,7 +68,7 @@
 
 
 	private:
-	  void generate_single_bin(std::vector<xyzall_surfel_t> const& input_surfels/*, float upper_bound, float lower_bound, float axis_location*/){
+	  void generate_single_bin(std::vector<xyzall_surfel_t> const& input_surfels){
 
 		content_.reserve(input_surfels.size());
 		auto copy_lambda = [&]( xyzall_surfel_t const& surfel){return (surfel.pos_coordinates[1] >= (pos_along_slicing_axis_ - lower_bound_size_) ) && (surfel.pos_coordinates[1] <= (pos_along_slicing_axis_ + upper_bound_size_) );};
@@ -88,7 +88,7 @@
 
 	namespace binning {
 		bool evaluate_similarity(bin const& bin_A, bin const& bin_B);
-		std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const inital_bin_half_height);
+		std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const inital_bin_half_height, uint& max_num_loops);
 	}		
 
 #endif //BINNING_H

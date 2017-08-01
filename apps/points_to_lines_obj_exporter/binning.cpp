@@ -37,7 +37,7 @@ bool binning::
  			//m_00 += total_num_points_in_cells;
  		}
  	}
- 	std::cout << "DENOMINATOR: " << m_01 + m_10 + m_11 << "\n";
+ 	//std::cout << "DENOMINATOR: " << m_01 + m_10 + m_11 << "\n";
 
  	float jaccard_enumerator = m_11 ;
  	float jaccard_denominator = (m_01 + m_10 + m_11);
@@ -58,7 +58,7 @@ bool binning::
  		splitting_depth_dependent_sensitivity *= 0.58;
  	}
 
- 	std::cout << "Jaccard Index: " << jaccard_index << "\n";
+ 	//std::cout << "Jaccard Index: " << jaccard_index << "\n";
   	if(jaccard_index > splitting_depth_dependent_sensitivity){
  		return true; //the 2 binary images are similar => no additional bin should be created between them
  	}else{
@@ -67,7 +67,7 @@ bool binning::
 }
 
 std::vector<bin> binning::
- generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const initial_bound_value){
+ generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const initial_bound_value, uint& max_num_layers){
  	std::vector<bin> bins;
  	auto bounding_corners = utils::compute_bounding_corners(all_surfels);
  	float current_pos_along_slicing_axis = bounding_corners.min_y + initial_bound_value;
@@ -92,9 +92,11 @@ std::vector<bin> binning::
 	 	working_queue.push(evaluation_job(bin_idx, bin_idx+1));
 	}
 
+	if(max_num_layers < current_slice_count){
+		max_num_layers = 250;
+	}
 
-
- 	while( (!working_queue.empty()) && (current_slice_count < 500)  ){
+ 	while( (!working_queue.empty()) && (current_slice_count < max_num_layers)  ){
  		auto current_job = working_queue.front();
  		working_queue.pop();
 
@@ -104,7 +106,7 @@ std::vector<bin> binning::
  		auto & top_bin = bins[top_id];
  		auto & bottom_bin = bins[bottom_id];
 
- 		std::cout << "Evaluating top bin: " << top_id << " against bottom bin: " << bottom_id << "\n";
+ 		//std::cout << "Evaluating top bin: " << top_id << " against bottom bin: " << bottom_id << "\n";
 
  		bool are_bins_similar = evaluate_similarity(top_bin, bottom_bin);
  		if (!are_bins_similar){
@@ -138,6 +140,8 @@ std::vector<bin> binning::
  			++current_slice_count;
  			std::cout << current_slice_count << "\n";
  		}
+
+
  	}
 
  	//remove unneeded data
@@ -150,7 +154,8 @@ std::vector<bin> binning::
  		}
  	}
 
- 	std::cout << "Finally returning " << bins.size() << " bins\n";
+ 	max_num_layers =  bins.size();
+ 	//std::cout << "Finally returning " << bins.size() << " bins\n";
 
  	return bins;
 }
