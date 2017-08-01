@@ -317,7 +317,7 @@
 	          	z_index = std::min(num_cells_pro_dim_z - 1, std::max(0, int32_t( (current_surfel.pos_coordinates[2] - min_z) / cell_depth)));
 	      	  }
 
-	          std::cout << "x_index " << x_index << " y_index " << y_index << " z_index " << z_index << "\n";
+	          //std::cout << "x_index " << x_index << " y_index " << y_index << " z_index " << z_index << "\n";
 	          
 	          int64_t cell_index = z_index * num_cells_pro_dim_z * num_cells_pro_dim_y + y_index * num_cells_pro_dim_y  + x_index;
 	          auto& current_cell = out_cells[cell_index];
@@ -361,7 +361,6 @@
 
 				while(not_enough_candidates){
 					search_radius +=  1.5*inital_search_radius;
-					std::cout << search_radius << std::endl;
 					candidate_cells.clear();
 					find_candidate_cells(cells_vec, current_point.pos_coordinates, search_radius, candidate_cells);
 					not_enough_candidates = test_for_sufficency(candidate_cells);

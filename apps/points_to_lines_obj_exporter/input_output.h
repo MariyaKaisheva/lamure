@@ -29,6 +29,7 @@ namespace io{
          "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
          "\t--apply_nurbs_fitting: (optional); set flag for curve-fitting to TRUE" << std::endl << 
          "\t--use_dbscan: (optional); set DBSCAN as prefered clustering algorithm" << std::endl << 
+         "\t--apply_alpha_shapes: (optional); set flag for alpha-shaped to TRUE" << std::endl <<
          "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
          std::endl;
 	}
