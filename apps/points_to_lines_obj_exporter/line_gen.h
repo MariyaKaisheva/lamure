@@ -5,7 +5,7 @@
 #include "nurbscurve.hpp"
 #include "clustering.h"
 
-#include <queue>
+#include <stack>
 
 
 //sort in descending order based on y coordinate value 
@@ -44,29 +44,54 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
     control_points_vec[cluster_index] = current_control_point;
   }
 
-  //std::cout << "control_points_vec size: " << control_points_vec.size() << std::endl;
 
-   uint32_t degree = 4;
+   uint8_t degree = 3;
+
+   //connect first to last segment
+   //auto first_point = control_points_vec[0];
+   //control_points_vec.push_back(first_point);
 
    //num control points must be >= order (degree + 1)
    if (control_points_vec.size() < degree + 1) {
-      //throw std::runtime_error("Insufficient number of control points");
+      throw std::runtime_error("Insufficient number of control points");
       degree = control_points_vec.size() - 1;
    }
+/*
+     std::cout << "Control point x_coord: [";
+  for(auto cp :  control_points_vec){
 
+      std::cout << "{" << cp.x << ", " << cp.y << ", " << cp.z << "}, ";
+    
+  }
+
+  std::cout << "]\n\n";
+*/
   //generate knot vector
   std::vector<double> knot_vec;
  // auto knot_vec_size = control_points_vec.size() + degree + 1; //knot vector should be of size: num. control points + order
   
+
+  for(uint32_t i = 0; i < degree; ++i){ 
+      knot_vec.push_back(double(0.0));
+  }
+
   float last_knot_value = 0;
-  for(uint32_t knot_counter = 0; knot_counter < control_points_vec.size(); ++knot_counter){ //
+  for(uint32_t knot_counter = 0; knot_counter < control_points_vec.size() + 1 - degree ; ++knot_counter){ //
       knot_vec.push_back(double(knot_counter));
       last_knot_value = knot_counter;
   } 
-  for(uint32_t i = 0; i <= degree; ++i){ 
+
+  for(uint32_t i = 0; i < degree; ++i){ 
       knot_vec.push_back(double(last_knot_value));
   } 
+/*
+  std::cout << "Knot Vec: [";
+  for(auto knot :  knot_vec){
+     std::cout << knot << " ";
+  }
 
+  std::cout << "]\n\n";
+*/
   //curve fitting
   gpucast::math::nurbscurve3d nurbs_curve;
   nurbs_curve.set_points(control_points_vec.begin(), control_points_vec.end());
@@ -76,7 +101,7 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   
-  #if 1 //dynamic sampling step parameter
+  #if 0 //dynamic sampling step parameter
  	//intial points
   	float initial_t = degree; 
   	float final_t = last_knot_value;
@@ -91,16 +116,17 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   	evaluated_points_vec.push_back(start_point);
   	evaluated_points_vec.push_back(end_point);
 
-  	std::queue<line_approximation_job> working_queue;
+  	std::stack<line_approximation_job> working_stack;
 
   	//create inital approximation jobs
   	line_approximation_job j_0(initial_t, final_t, approximated_middle_point);
-  	working_queue.push(j_0);
+  	working_stack.push(j_0);
  
+
   	float error_threshold = 0.01;
-  	while(!working_queue.empty()){
-  		auto current_job = working_queue.front();
-  		working_queue.pop();
+  	while(!working_stack.empty()){
+  		auto current_job = working_stack.top();
+  		working_stack.pop();
 
   		auto start_point = nurbs_curve.evaluate(current_job.start_t_);
   		auto end_point = nurbs_curve.evaluate(current_job.end_t_);
@@ -118,8 +144,8 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   			auto approximated_middle_point_2 = get_midpoint(nurbs_curve.evaluate(middle_t), end_point);
   			line_approximation_job j_2(middle_t, current_job.end_t_, approximated_middle_point_2);
 
-  			working_queue.push(j_1);
-  			working_queue.push(j_2);
+  			working_stack.push(j_1);
+  			working_stack.push(j_2);
 
 	  	}else{//push data for final storage
 	  		//convert to point type used by line struk
@@ -135,7 +161,7 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
 
   #else //fixed sampling step parameter
 	  float parameter_t = degree;
-	  float sampling_step = 0.6;
+	  float sampling_step = 1.5;
 	  
 	  while(parameter_t < last_knot_value - sampling_step){
 
@@ -166,7 +192,7 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
 
 	//parameters used for distance-based sampling; TODO make them use input dependent if still used in the long run
     uint32_t max_num_points = 40;
-    bool naive_sampling = true;
+    bool naive_sampling = false;
 
     //sort input points according to their y-coordinate 
     std::sort(input_data.begin(), input_data.end(), comparator);
@@ -241,8 +267,11 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
               }
 
               //sort cluster content
-              auto ordered_cluster = utils::order_points(sampled_cluster, true);
-
+              #if 0
+                auto ordered_cluster = utils::order_points(sampled_cluster, true);
+              #else //no sorting 
+                auto& ordered_cluster = sampled_cluster;
+              #endif
 
               if(!use_nurbs){ //create straightforward line segments  
                 uint32_t num_lines_to_push = (ordered_cluster.size()) - 1;
@@ -255,7 +284,21 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
                   line_data.push_back(current_line);
                 }
               }else {//fit NURBS curve and evaluate it 
-                std::vector<line> const line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster);
+                std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster);
+/*
+                float sqrt_of_val = std::sqrt(0.5);
+                std::vector<point> fake_cluster = {    
+                                                      {1.0, 0, 0}, {sqrt_of_val, 0, sqrt_of_val}, {0, 0, 1}, 
+                                                      {- sqrt_of_val, 0, sqrt_of_val}, {-1, 0, 0}, {-sqrt_of_val, 0, -sqrt_of_val},
+                                                      {0, 0, -1}, {sqrt_of_val, 0, -sqrt_of_val}
+                                                  };
+*/
+
+                //std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(fake_cluster);
+                /*if(line_data_from_sampled_curve.size() > 1) {
+                  line_data_from_sampled_curve.push_back( line(line_data_from_sampled_curve[0].end, line_data_from_sampled_curve[line_data_from_sampled_curve.size()-1].start ) );
+                }*/
+
                 for(auto& current_line : line_data_from_sampled_curve){
                   line_data.push_back(current_line);
                 }
