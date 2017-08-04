@@ -16,6 +16,8 @@
 #include <limits>
 #include <random>
 
+#include <scm/gl_core/math.h>
+
 #include <lamure/ren/model_database.h>
 #include <lamure/bounding_box.h>
 #include <lamure/types.h>
@@ -38,11 +40,14 @@ int main(int argc, char** argv)
 {
   
     if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
-        !io::cmd_option_exists(argv, argv+argc, "-f")) {
+        !io::cmd_option_exists(argv, argv+argc, "-f") || 
+        !io::cmd_option_exists(argv, argv+argc, "-t")) {
         io::print_help_message(argv);
       return 0;
     }
 
+    std::string txt_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
+    auto user_defined_rot_mat = io::read_in_transformation_file(txt_filename);
 
     std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));
     std::string ext = bvh_filename.substr(bvh_filename.size()-3);
@@ -94,6 +99,17 @@ int main(int argc, char** argv)
                                         [](xyzall_surfel_t s){return s.radius_ <= 0.0;}),
                          surfels_vector.end());
 
+    //apply inverser transformation on the local coordinate system of the model
+    //such that y_axis will allign with user-defined direction 
+    auto inverse_rot_mat = scm::math::inverse(user_defined_rot_mat);
+    for(auto& surfel : surfels_vector){
+        scm::math::vec3f original_coord = scm::math::vec4f(surfel.pos_coordinates[0], surfel.pos_coordinates[1], surfel.pos_coordinates[2], 1.0f);
+        auto transformed_coord = inverse_rot_mat * original_coord;
+        surfel.pos_coordinates[0] = transformed_coord.x;
+        surfel.pos_coordinates[1] = transformed_coord.y;
+        surfel.pos_coordinates[2] = transformed_coord.z; 
+    }
+
     //check user preferences
     bool use_nurbs = io::cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
    //bool apply_naive_clustering = !io::cmd_option_exists(argv, argv + argc, "--use_dbscan");
@@ -102,6 +118,9 @@ int main(int argc, char** argv)
 
     //create line representation of original input data
     auto line_data = generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes);
+
+    //transform data again to return to the original model orientation 
+    utils::transform(line_data, user_defined_rot_mat);
     
     #if 0 //remove potential oulier line segments; 
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;

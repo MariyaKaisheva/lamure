@@ -23,7 +23,8 @@ namespace io{
 	inline void print_help_message(char** argv){
 		 std::cout << "Usage: " << argv[0] << " -f <input_file>" << std::endl <<
          "Parameters: " << std::endl <<
-         "\t-f: specify .bvh input file" << std::endl <<
+         "\t-f: (required) specify .bvh input file" << std::endl <<
+         "\t-t: (required) specify .txt input file that contains desired transformation" << std::endl <<
          "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
          "\t-l: (optional) specify max number of slicing layers; vaule should be more than 5" << std::endl <<
          "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
@@ -34,8 +35,27 @@ namespace io{
          std::endl;
 	}
 
+	inline scm::math::mat4f read_in_transformation_file(std::string input_filename){
+		std::ifstream in_stream(input_filename);
+        std::string line_buffer;
+        float angle, axis_x, axis_y, axis_z; 
+
+		while(std::getline(in_stream, line_buffer)) {
+			std::stringstream my_ss(line_buffer);		
+			my_ss >> angle;
+			my_ss >> axis_x;
+			my_ss >> axis_y;
+			my_ss >> axis_z;
+		}
+
+		in_stream.close();
+		
+		return scm::math::make_rotation(angle, axis_x, axis_y, axis_z);
+	}
+
 	inline void write_output(bool write_obj_file, std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh){
 		if(write_obj_file) {
+
 	      std::ofstream output_file(output_filename);
 	      unsigned long vert_counter = 1;
 

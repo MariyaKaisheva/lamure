@@ -423,6 +423,25 @@
 
 			return ordered_result;
 		};
+
+		inline void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat){
+			for(auto& line : line_data_vec){
+				scm::math::vec3f inital_start_coord = scm::math::vec4f(line.start.pos_coordinates_[0], line.start.pos_coordinates_[1], line.start.pos_coordinates_[2], 1.0f);
+				float transformed_start_x = (transformation_mat * inital_start_coord).x;
+				float transformed_start_y = (transformation_mat * inital_start_coord).y;
+				float transformed_start_z = (transformation_mat * inital_start_coord).z;
+				scm::math::vec3f inital_end_coord = scm::math::vec4f(line.end.pos_coordinates_[0], line.end.pos_coordinates_[1], line.end.pos_coordinates_[2], 1.0f);
+				float transformed_end_x = (transformation_mat * inital_end_coord).x;
+				float transformed_end_y = (transformation_mat * inital_end_coord).y;
+				float transformed_end_z = (transformation_mat * inital_end_coord).z;
+				line.start.pos_coordinates_[0] = transformed_start_x;
+				line.start.pos_coordinates_[1] = transformed_start_y;
+				line.start.pos_coordinates_[2] = transformed_start_z;
+				line.end.pos_coordinates_[0] = transformed_end_x;
+				line.end.pos_coordinates_[1] = transformed_end_y;
+				line.end.pos_coordinates_[2] = transformed_end_z;
+			}
+		}; 
 	}
 
 #endif //UTILS_H
