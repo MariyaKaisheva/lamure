@@ -128,7 +128,7 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   	working_stack.push(j_0);
  
 
-  	float error_threshold = 0.001;
+  	float error_threshold = 0.01;
   	while(!working_stack.empty()){
   		auto current_job = working_stack.top();
   		working_stack.pop();
@@ -209,7 +209,7 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
     //with size to holding appyimately 1000 data points (assuming uniform point distribution)
     uint8_t num_cells_pro_dim =  ceil(cbrt(input_data.size() / 1000)); 
     float avg_min_distance = utils::compute_avg_min_distance(input_data, num_cells_pro_dim, num_cells_pro_dim, num_cells_pro_dim);
-    float distance_threshold =  avg_min_distance * 4.0; 
+    float distance_threshold =  avg_min_distance * 2.0; 
 
     std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
 
@@ -265,11 +265,11 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
               	std::cout << "applying naive sampling with " << max_num_points << "\n";
               	sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, max_num_points); 
               }else if(apply_alpha_shapes){ //use alpha_shapes to select only points that make up the concave hull of a cluster
-				float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
-				std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
-				alpha::do_input_conversion(cgal_points, current_cluster);
-				auto cgal_line_segments = alpha::generate_alpha_shape(cgal_points);
-				sampled_cluster =  alpha::do_output_conversion(cgal_line_segments, cluster_y_coord);
+                float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
+                std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
+                alpha::do_input_conversion(cgal_points, current_cluster);
+                auto cgal_line_segments = alpha::generate_alpha_shape(cgal_points);
+                sampled_cluster =  alpha::do_output_conversion(cgal_line_segments, cluster_y_coord);
               }
 
               //sort cluster content

@@ -69,7 +69,7 @@ int main(int argc, char** argv)
     }
 
     bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
-    uint32_t max_number_line_loops = 250; 
+    uint32_t max_number_line_loops = 85;
     if(io::cmd_option_exists(argv, argv+argc, "-l")){
      max_number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
     }
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 
     size_t size_of_node = (uint64_t)bvh->get_primitives_per_node() * sizeof(lamure::ren::dataset::serialized_surfel);
 
-    std::cout << "working with surfels at depth " << depth << "; Max depth for this moidel is "<<  bvh->get_depth() <<std::endl;
+    std::cout << "working with surfels at depth " << depth << "; Max depth for this model is "<<  bvh->get_depth() <<std::endl;
     lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
  
 
