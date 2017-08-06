@@ -104,11 +104,11 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   
-  float epsilon = 0.0001;
+  float evaluation_offset = 0.0001;
 
   #if 1 //dynamic sampling step parameter
  	//intial points
-  	float initial_t = epsilon; 
+  	float initial_t = evaluation_offset; 
   	float final_t = last_knot_value;
   	
   	auto start_point = nurbs_curve.evaluate(initial_t);
@@ -166,7 +166,7 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
 
   #else //fixed sampling step parameter
 
-	  float parameter_t = epsilon;
+	  float parameter_t = evaluation_offset;
 	  float sampling_step = 0.002;
 	  
 	  while(parameter_t < last_knot_value - sampling_step){
@@ -272,10 +272,10 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
                 sampled_cluster =  alpha::do_output_conversion(cgal_line_segments, cluster_y_coord);
               }
 
-              //sort cluster content
+              //sort cluster content (ONLY WHEN NOT USING ALPHA SHAPES)
               #if 0
                 auto ordered_cluster = utils::order_points(sampled_cluster, true);
-              #else //no sorting 
+              #else //no sorting (ONLY WHEN USING ALPHA SHAPES)
                 auto& ordered_cluster = sampled_cluster;
               #endif
 

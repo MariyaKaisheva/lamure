@@ -425,7 +425,11 @@
 		};
 
 		inline void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat){
-			for(auto& line : line_data_vec){
+
+		    size_t num_lines_in_vector = line_data_vec.size();
+		    #pragma omp parallel for
+		    for(size_t line_idx = 0; line_idx < num_lines_in_vector; ++line_idx) {
+				auto& line = line_data_vec[line_idx];
 				scm::math::vec3f inital_start_coord = scm::math::vec4f(line.start.pos_coordinates_[0], line.start.pos_coordinates_[1], line.start.pos_coordinates_[2], 1.0f);
 				float transformed_start_x = (transformation_mat * inital_start_coord).x;
 				float transformed_start_y = (transformation_mat * inital_start_coord).y;

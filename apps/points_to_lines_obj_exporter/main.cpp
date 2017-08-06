@@ -102,7 +102,12 @@ int main(int argc, char** argv)
     //apply inverser transformation on the local coordinate system of the model
     //such that y_axis will allign with user-defined direction 
     auto inverse_rot_mat = scm::math::inverse(user_defined_rot_mat);
-    for(auto& surfel : surfels_vector){
+
+    size_t num_surfels_in_vector = surfels_vector.size();
+    #pragma omp parallel for
+    for(size_t surfel_idx = 0; surfel_idx < num_surfels_in_vector; ++surfel_idx) {
+    //for(auto& surfel : surfels_vector){
+        auto& surfel = surfels_vector[surfel_idx];
         scm::math::vec3f original_coord = scm::math::vec4f(surfel.pos_coordinates[0], surfel.pos_coordinates[1], surfel.pos_coordinates[2], 1.0f);
         auto transformed_coord = inverse_rot_mat * original_coord;
         surfel.pos_coordinates[0] = transformed_coord.x;

@@ -282,7 +282,7 @@ namespace gpucast { namespace math {
   nurbscurve<point_t>::set_knotvector(iterator_t begin, iterator_t end)
   {
     _knots.clear();
-    std::copy(begin, end, std::back_inserter(_knots));
+    std::move(begin, end, std::back_inserter(_knots));
     //normalize_knotvector();
   }
 
@@ -294,7 +294,7 @@ namespace gpucast { namespace math {
   nurbscurve<point_t>::set_points(iterator_t begin, iterator_t end)
   {
     _points.clear();
-    std::copy(begin, end, std::back_inserter(_points));
+    std::move(begin, end, std::back_inserter(_points));
   }
 
 
