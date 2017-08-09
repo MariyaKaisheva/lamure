@@ -50,9 +50,9 @@
 		namespace utils{
 			inline float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
 				lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z));
-				float result = sqrt(distance_vector.x*distance_vector.x +
-				                    distance_vector.y*distance_vector.y +
-				                    distance_vector.z*distance_vector.z);
+				float result = std::sqrt(distance_vector.x*distance_vector.x +
+				                    	 distance_vector.y*distance_vector.y +
+				                    	 distance_vector.z*distance_vector.z);
 				return result;
 			}
 		}
@@ -62,7 +62,7 @@
 			line() : start(point()), end(point()), length(0.0f){}
 			line(point const& start_point, point const& end_point, float length) : start(start_point), end(end_point), length(length) {}
 			line(point const& start_point, point const& end_point) : start(start_point), end(end_point) {
-				auto l= utils::compute_distance(lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]),
+				auto l = utils::compute_distance(lamure::vec3f(start_point.pos_coordinates_[0], start_point.pos_coordinates_[1], start_point.pos_coordinates_[2]),
                                            		lamure::vec3f(end_point.pos_coordinates_[0], end_point.pos_coordinates_[1], end_point.pos_coordinates_[2]));
 				length = l;
 			}
@@ -234,6 +234,7 @@
 	        return corner_coordinates;
 		}
 
+
 		inline void generate_cells(std::vector<xyzall_surfel_t> const& input_data, 
 								   float& suggested_search_radius, 
 								   std::vector<grid_cell>& out_cells, 
@@ -266,7 +267,12 @@
 	       	  suggested_search_radius = std::min(suggested_search_radius, comparison_values[dim_idx]);
 	       }
 
+	       if( std::numeric_limits<float>::max() == suggested_search_radius ) {
+	       	suggested_search_radius = 1.0;
+	       }
+
 	       suggested_search_radius /= 4.0;
+
 
 
 	       	//std::vector<grid_cell> cells_vec(num_cells_pro_dim * num_cells_pro_dim * num_cells_pro_dim);
@@ -326,7 +332,7 @@
 	       	}
 
 	       	//return cells_vec;
-		} 
+		}
 
 		inline bool test_for_sufficency(std::vector<grid_cell*> const& input_cells) {
 			uint content_counter = 0;
@@ -365,6 +371,11 @@
 					candidate_cells.clear();
 					find_candidate_cells(cells_vec, current_point.pos_coordinates, search_radius, candidate_cells);
 					not_enough_candidates = test_for_sufficency(candidate_cells);
+
+					//if degenerated: break
+					if(search_radius > 1000000.0f) {
+						break;
+					}
 				}
 
 				for (auto const& curent_cell : candidate_cells) {
@@ -377,6 +388,10 @@
 						}
 					}
 
+				}
+
+				if( min_distance == std::numeric_limits<float>::max() ) {
+					min_distance = 0.0f;
 				}
 
 				average_min_distance += min_distance;
