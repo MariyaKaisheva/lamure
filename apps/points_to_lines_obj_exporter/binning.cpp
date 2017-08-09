@@ -12,8 +12,6 @@
 bool binning::
   evaluate_similarity(bin const& bin_A, bin const& bin_B){
 
- 	std::cout << "Starting to eval similarity" << std::endl;
-
  	//coefficents used by computation of Jaccard index
  	uint m_11 = 0; //both binary values = 1
  	uint m_01 = 0; //first binary value = 0, second binary value = 1
@@ -21,8 +19,8 @@ bool binning::
  	uint m_00 = 0; //both binary values = 0
  	uint num_cells = bin_A.binary_image_.size(); //bin_A and bin_B have binary_image vectors of equal size
 
- 	std::cout << "Size of binary image a: "  << num_cells << std::endl;
- 	std::cout << "Size of binary image b: "  << bin_B.binary_image_.size() << std::endl;
+ 	//std::cout << "Size of binary image a: "  << num_cells << std::endl;
+ 	//std::cout << "Size of binary image b: "  << bin_B.binary_image_.size() << std::endl;
 
  	for(uint cell_iterator = 0; cell_iterator < num_cells; ++cell_iterator){
 
@@ -30,16 +28,12 @@ bool binning::
 
  		if( (bin_A.binary_image_[cell_iterator] > 0) && (bin_B.binary_image_[cell_iterator] > 0) ){
  			++m_11;
- 			//m_11 += total_num_points_in_cells;
  		}else if( (bin_A.binary_image_[cell_iterator] == 0) && (bin_B.binary_image_[cell_iterator] != 0) ){
  			++m_01;
- 			//m_01 += total_num_points_in_cells;
  		}else if( (bin_A.binary_image_[cell_iterator] != 0) && (bin_B.binary_image_[cell_iterator] == 0) ){
  			++m_10;
- 			//m_10 += total_num_points_in_cells;
  		}else if( (bin_A.binary_image_[cell_iterator] == 0) && ( bin_B.binary_image_[cell_iterator] == 0) ){
  			++m_00;
- 			//m_00 += total_num_points_in_cells;
  		}
  	}
  	//std::cout << "DENOMINATOR: " << m_01 + m_10 + m_11 << "\n";
@@ -62,8 +56,12 @@ bool binning::
  	/*for(uint split_depth_idx = 0; split_depth_idx < max_split_depth; ++split_depth_idx) {
  		splitting_depth_dependent_sensitivity *= 0.58;
  	}*/
-    splitting_depth_dependent_sensitivity = 0.15;
- 	std::cout << "Jaccard Index: " << jaccard_index << std::endl;
+
+    #if 1
+    splitting_depth_dependent_sensitivity = 0.30;
+    #endif
+
+ 	//std::cout << "Jaccard Index: " << jaccard_index << std::endl;
   	if(jaccard_index > splitting_depth_dependent_sensitivity){
  		return true; //the 2 binary images are similar => no additional bin should be created between them
  	}else{
@@ -80,7 +78,7 @@ std::vector<bin> binning::
         bool static_binnig = false; 
 
         if(static_binnig){
-            /*auto num_elements = all_surfels.size();
+            auto num_elements = all_surfels.size();
             auto height = all_surfels.at(num_elements-1).pos_coordinates[1] - all_surfels.at(0).pos_coordinates[1]; //all_surfels vector is already sorted at this point 
             float const offset = height / max_num_layers;
             float current_y_min = all_surfels.at(0).pos_coordinates[1];
@@ -95,7 +93,7 @@ std::vector<bin> binning::
                 bins.emplace_back(all_surfels, initial_bound_value, initial_bound_value, current_y_mean);
                 current_y_min = current_y_max;
                 current_y_max += offset;
-            }*/
+            }
         }else{ //dynamic binnig 
                 
             auto bounding_corners = utils::compute_bounding_corners(all_surfels);
@@ -201,11 +199,8 @@ std::vector<bin> binning::
 
                 std::advance(it2, 1);
                 bins.push_back(*it1);
-
-                std::cout << "BEFORE WHILE LOOP" << std::endl;
                 while(it2 != working_list_of_bins.end()){
                     bool are_bins_similar = evaluate_similarity(*it1, *it2);
-                    std::cout << are_bins_similar << " are_bins_similar" << std::endl;
                     if(are_bins_similar){
                         it2 = working_list_of_bins.erase(it2);
 
@@ -222,6 +217,6 @@ std::vector<bin> binning::
         }
 
     max_num_layers =  bins.size();
-    std::cout << "Finally returning " << bins.size() << " bins\n";
+    //std::cout << "Finally returning " << bins.size() << " bins\n";
  	return bins;
 }

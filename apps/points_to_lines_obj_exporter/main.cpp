@@ -38,7 +38,7 @@
 
 int main(int argc, char** argv)
 {
-  
+    //input validation
     if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
         !io::cmd_option_exists(argv, argv+argc, "-f") || 
         !io::cmd_option_exists(argv, argv+argc, "-t")) {
@@ -46,12 +46,11 @@ int main(int argc, char** argv)
       return 0;
     }
 
-    std::string txt_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
-    auto user_defined_rot_mat = io::read_in_transformation_file(txt_filename);
-
+    std::string rot_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
     std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));
-    std::string ext = bvh_filename.substr(bvh_filename.size()-3);
-    if (ext.compare("bvh") != 0) {
+    std::string ext_bvh = bvh_filename.substr(bvh_filename.size()-3);
+    std::string ext_rot = rot_filename.substr(rot_filename.size()-3);
+    if ((ext_bvh.compare("bvh") != 0) && (ext_rot.compare("rot") != 0)){
         std::cout << "please specify a .bvh file as input" << std::endl;
         return 0;
     }
@@ -101,6 +100,7 @@ int main(int argc, char** argv)
 
     //apply inverser transformation on the local coordinate system of the model
     //such that y_axis will allign with user-defined direction 
+    auto user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
     auto inverse_rot_mat = scm::math::inverse(user_defined_rot_mat);
 
     size_t num_surfels_in_vector = surfels_vector.size();
@@ -126,7 +126,7 @@ int main(int argc, char** argv)
 
     //transform data again to return to the original model orientation 
     utils::transform(line_data, user_defined_rot_mat);
-    
+
     #if 0 //remove potential oulier line segments; 
     std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
     auto avg_line_length = utils::compute_global_average_line_length(line_data); 
@@ -137,8 +137,21 @@ int main(int argc, char** argv)
     std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
     #endif
 
-    std::string obj_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(max_number_line_loops) + ".obj";
-    std::string xyz_all_filename = bvh_filename.substr(0, bvh_filename.size()-4)+ "_d" + std::to_string(depth) + "_l" + std::to_string(max_number_line_loops) + ".xyz_all";
+    std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
+    std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
+
+    std::string rot_substring_without_path = rot_filename.substr(rot_filename.find_last_of("/\\") + 1); 
+    std::string rot_substring_without_path_and_extension = rot_substring_without_path.substr(0, rot_substring_without_path.size() - 4 );
+
+    //std::string rot_substring = rot_filename.substr(0, rot_filename.size()-4);
+
+    std::string output_files_base_name =   bvh_filename_without_path_and_extension 
+                                         + "_d" + std::to_string(depth) 
+                                         + "_l" + std::to_string(max_number_line_loops) 
+                                         + "_" + rot_substring_without_path_and_extension;
+
+    std::string obj_filename = output_files_base_name + ".obj";
+    std::string xyz_all_filename = output_files_base_name + ".xyz_all";
    
 
     if(write_obj_file){
@@ -146,8 +159,10 @@ int main(int argc, char** argv)
     }else{
       io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
     }
-        
-    std::cout << "ok \n";
+     
+    std::cout << "NURBS ussage: " <<  use_nurbs << std::endl;
+    std::cout << "Alpha-shapes ussage: " <<  apply_alpha_shapes << std::endl;  
+    std::cout << "--------------- ok ----------------\n";
 
     delete in_access;
     delete bvh;

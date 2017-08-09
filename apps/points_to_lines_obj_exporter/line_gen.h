@@ -106,6 +106,8 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   
   float evaluation_offset = 0.0001;
 
+
+
   #if 1 //dynamic sampling step parameter
  	//intial points
   	float initial_t = evaluation_offset; 
@@ -194,7 +196,7 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
 
 inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_loops, bool use_nurbs, bool apply_alpha_shapes){
 	uint32_t current_cluster_id = 0;
-	uint8_t order = 5; //TODO cosider changeing this variable to user-defined one
+	uint8_t order = 5; //TODO consider changeing this variable to user-defined one
 
 	//parameters used for distance-based sampling; TODO make them use input dependent if still used in the long run
     uint32_t max_num_points = 40;
@@ -207,7 +209,7 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
 
     //inital global computation for whole model 
     //with size to holding appyimately 1000 data points (assuming uniform point distribution)
-    uint8_t num_cells_pro_dim =  ceil(cbrt(input_data.size() / 1000)); 
+    uint8_t num_cells_pro_dim =  std::ceil(std::cbrt(input_data.size() / 1000)); 
     float avg_min_distance = utils::compute_avg_min_distance(input_data, num_cells_pro_dim, num_cells_pro_dim, num_cells_pro_dim);
     float distance_threshold =  avg_min_distance * 2.0; 
 
@@ -225,6 +227,10 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
 
         //compute average minimal distance between surfels in a bin
         float avg_min_distance_per_bin = utils::compute_avg_min_distance(current_bin_of_surfels.content_, num_cells_pro_dim, 1, num_cells_pro_dim);
+
+        if(0.0f == avg_min_distance_per_bin) {
+          continue;
+        }
 
         //set parameters for DBSCAN
 		float eps = avg_min_distance_per_bin * 20.0; // radis of search area
@@ -245,7 +251,7 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
           ++current_cluster_id;
         }
 
-        line current_line; 
+
 
         //create oulines for underlying shape of a cluster 
         if(all_clusters_per_bin_vector.size() > 0){
@@ -253,6 +259,9 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
           for(auto& current_cluster : all_clusters_per_bin_vector){
             uint32_t cluster_size = current_cluster.size();
 
+            if( cluster_size <= order ) {
+              continue;
+            }
 
             if(cluster_size > order) { //at least 2 vertices per cluster are need for one complete line 
               std::cout << "Cluster size " << cluster_size << std::endl;
@@ -279,15 +288,15 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
                 auto& ordered_cluster = sampled_cluster;
               #endif
 
-              if(!use_nurbs){ //create straightforward line segments  
+
+
+              if(!use_nurbs){ //create straightforward line segments
+
                 uint32_t num_lines_to_push = (ordered_cluster.size()) - 1;
 
-                for (uint line_idx = 0; line_idx < num_lines_to_push; ++line_idx) { 
-                  current_line.start = ordered_cluster.at(line_idx);
-                  current_line.end = ordered_cluster.at(line_idx+1);
-                  current_line.length = utils::compute_distance(lamure::vec3f(current_line.start.pos_coordinates_[0], current_line.start.pos_coordinates_[1], current_line.start.pos_coordinates_[2]),
-                                                          lamure::vec3f(current_line.end.pos_coordinates_[0], current_line.end.pos_coordinates_[1], current_line.end.pos_coordinates_[2]));
-                  line_data.push_back(current_line);
+                for (uint line_idx = 0; line_idx < num_lines_to_push; ++line_idx) {
+                  
+                  line_data.emplace_back(ordered_cluster.at(line_idx), ordered_cluster.at(line_idx+1));
                 }
               }else {//fit NURBS curve and evaluate it 
 /*
@@ -307,9 +316,10 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
 
                 std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster);
                 for(auto& current_line : line_data_from_sampled_curve){
-                  line_data.push_back(current_line);
+                  line_data.emplace_back(current_line);
                 }
               }
+
             }
           }
         }
@@ -317,7 +327,6 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
           std::cout << "no clusters in the current layer \n"; 
         }
     }
-  
     return line_data;
 }
 

@@ -86,7 +86,7 @@ std::vector<Segment> generate_alpha_shape(std::vector<cgal_point_2> const& point
 	  int index = 1;
 
 	  for (hole_iterator = unbounded_face->holes_begin(); hole_iterator != unbounded_face->holes_end(); ++hole_iterator, ++index) {
-	    std::cout << " Hole #" << index << ": \n";
+	    //std::cout << " Hole #" << index << ": \n";
 
 		Arrangement_2::Ccb_halfedge_const_circulator start_of_hole_circulator = *hole_iterator;
 	  	Arrangement_2::Ccb_halfedge_const_circulator halfedge_circulator = start_of_hole_circulator;
@@ -102,8 +102,7 @@ std::vector<Segment> generate_alpha_shape(std::vector<cgal_point_2> const& point
 
 	  		segments.emplace_back(converted_point_0, converted_point_1);
 	  	} while(++halfedge_circulator != start_of_hole_circulator);
-
-	  	std::cout <<"num edges in hole: " << num_edges_in_hole << "\n";
+	  	//std::cout <<"num edges in hole: " << num_edges_in_hole << "\n";
 	 }
 
 

@@ -27,7 +27,7 @@ namespace io{
          "\t-t: (required) specify .txt input file that contains desired transformation" << std::endl <<
          "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
          "\t-l: (optional) specify max number of slicing layers; vaule should be more than 5" << std::endl <<
-         "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
+        // "\t--bin_density_threshold: (optional) specify max. distance to mean y_coordinate value; implicitly set surfel selection tolerance; default value is 0.002" << std::endl << 
          "\t--apply_nurbs_fitting: (optional); set flag for curve-fitting to TRUE" << std::endl << 
          "\t--use_dbscan: (optional); set DBSCAN as prefered clustering algorithm" << std::endl << 
          "\t--apply_alpha_shapes: (optional); set flag for alpha-shaped to TRUE" << std::endl <<
