@@ -124,6 +124,7 @@ int main(int argc, char** argv)
     //create line representation of original input data
     auto line_data = generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes);
 
+    std::cout << "Num generated lines: " << line_data.size() << "\n";
     //transform data again to return to the original model orientation 
     utils::transform(line_data, user_defined_rot_mat);
 
@@ -160,8 +161,8 @@ int main(int argc, char** argv)
       io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
     }
      
-    std::cout << "NURBS ussage: " <<  use_nurbs << std::endl;
-    std::cout << "Alpha-shapes ussage: " <<  apply_alpha_shapes << std::endl;  
+    std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
+    std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;  
     std::cout << "--------------- ok ----------------\n";
 
     delete in_access;

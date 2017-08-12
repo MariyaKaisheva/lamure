@@ -131,6 +131,7 @@ namespace gpucast { namespace math {
     struct scalar_field_2d {
       scalar_field_2d(size_t rows, size_t cols) 
       {
+        data.reserve(rows);
         for (size_t r = 0; r != rows; ++r) {
           data.push_back(std::vector<value_type>(cols, 0));
         }
@@ -138,6 +139,7 @@ namespace gpucast { namespace math {
 
       std::vector<value_type> operator()(size_t r) const {
         std::vector<value_type> result;
+        result.reserve(data.size());
         for (auto i : data) {
           result.push_back(i[r]);
         }
@@ -282,7 +284,8 @@ namespace gpucast { namespace math {
   nurbscurve<point_t>::set_knotvector(iterator_t begin, iterator_t end)
   {
     _knots.clear();
-    std::move(begin, end, std::back_inserter(_knots));
+    _knots.reserve(end-begin);
+    std::copy(begin, end, std::back_inserter(_knots));
     //normalize_knotvector();
   }
 
@@ -294,7 +297,8 @@ namespace gpucast { namespace math {
   nurbscurve<point_t>::set_points(iterator_t begin, iterator_t end)
   {
     _points.clear();
-    std::move(begin, end, std::back_inserter(_points));
+    _points.reserve(end-begin);
+    std::copy(begin, end, std::back_inserter(_points));
   }
 
 

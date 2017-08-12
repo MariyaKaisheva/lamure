@@ -29,6 +29,40 @@ inline gpucast::math::point3d get_midpoint(gpucast::math::point3d const& start_p
   	return middle_point;
 }
 
+inline void interpolate_cluster_input(std::vector<point> & combined_cluster_points, std::vector<uint32_t> const& original_cluster_sizes){
+  auto num_clusters = original_cluster_sizes.size();
+  auto first_point_index = 0;
+  auto last_point_index = original_cluster_sizes[0] + original_cluster_sizes[1] - 1;
+
+
+  for(int cluster_index = 0; cluster_index < num_clusters - 1; ++cluster_index){
+    uint32_t num_points_lower_cluster = original_cluster_sizes[cluster_index];
+    uint32_t num_points_upper_cluster = original_cluster_sizes[cluster_index + 1];
+    uint32_t total_num_points_in_current_cluster_subsection = (num_points_lower_cluster + num_points_upper_cluster) / 2;
+    float total_height = fabs(combined_cluster_points[first_point_index].pos_coordinates_[1] - combined_cluster_points[last_point_index].pos_coordinates_[1]);
+
+    float base_offset = total_height / total_num_points_in_current_cluster_subsection;
+    float height_offset = base_offset;
+
+    for (uint32_t pnt_counter = num_points_lower_cluster/2; pnt_counter < num_points_lower_cluster; ++pnt_counter) {
+      combined_cluster_points[first_point_index + pnt_counter].pos_coordinates_[1] += height_offset;
+      height_offset += base_offset;
+    }
+
+    height_offset = ((num_points_upper_cluster - 1) - (num_points_upper_cluster / 2) + 1) * base_offset;
+
+    for (uint32_t pnt_counter = num_points_upper_cluster - 1; pnt_counter > num_points_upper_cluster / 2; --pnt_counter) {
+      //std::cout << height_offset << " index for access: " << last_point_index - pnt_counter << "; size of vecs: " << combined_cluster_points.size() << "\n";
+      uint32_t backward_iterating_index = last_point_index - pnt_counter;
+      combined_cluster_points[backward_iterating_index].pos_coordinates_[1] -= height_offset;
+      std::cout << height_offset << " height_offset\n";
+      height_offset -= base_offset;
+    }
+    first_point_index += original_cluster_sizes[cluster_index];
+    last_point_index += original_cluster_sizes[cluster_index + 1];
+  }
+}
+
 inline std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points) {
  
   //coppy cluster content to vector of control points
@@ -49,7 +83,7 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
 
    //connect first to last segment
    auto first_point = control_points_vec[0];
-   control_points_vec.push_back(first_point);
+   //control_points_vec.push_back(first_point);
 
    //num control points must be >= order (degree + 1)
    if (control_points_vec.size() < degree + 1) {
@@ -87,14 +121,17 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
       knot_vec.push_back(double(last_knot_value));
   } 
 
-/*
-  std::cout << "Knot Vec: [";
+
+  std::cout << "num knots: " << knot_vec.size() << "\n";
+  std::cout << "num control points: " << control_points_vec.size() << "\n"; 
+
+  /*std::cout << "Knot Vec: [";
   for(auto knot :  knot_vec){
      std::cout << knot << " ";
   }
 
-  std::cout << "]\n\n";
-*/
+  std::cout << "]\n\n";*/
+
   //curve fitting
   gpucast::math::nurbscurve3d nurbs_curve;
   nurbs_curve.set_points(control_points_vec.begin(), control_points_vec.end());
@@ -130,8 +167,9 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   	working_stack.push(j_0);
  
 
-  	float error_threshold = 0.01;
+  	float error_threshold = 0.001;
   	while(!working_stack.empty()){
+      //std::cout << "still in the loop!\n";
   		auto current_job = working_stack.top();
   		working_stack.pop();
 
@@ -169,14 +207,16 @@ inline std::vector<line> generate_lines_from_curve (std::vector<point> const& or
   #else //fixed sampling step parameter
 
 	  float parameter_t = evaluation_offset;
-	  float sampling_step = 0.002;
+	  float sampling_step = 1.2;
 	  
 	  while(parameter_t < last_knot_value - sampling_step){
 
 	    auto st_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
-	    parameter_t += sampling_step;
+	    std::cout << "XXXXXX " << st_sampled_curve_point[0] << ", " << st_sampled_curve_point[1] << ", " << st_sampled_curve_point[2] << "\n";
+      parameter_t += sampling_step;
 	    auto end_sampled_curve_point = nurbs_curve.evaluate(parameter_t);
-	    
+	    std::cout << "t" << parameter_t << std::endl;
+
 
 	    float pos_st_point[3] = {st_sampled_curve_point[0], st_sampled_curve_point[1], st_sampled_curve_point[2]};
 	    float pos_end_point[3] = {end_sampled_curve_point[0], end_sampled_curve_point[1], end_sampled_curve_point[2]};
@@ -217,7 +257,8 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
 
     std::vector<line> line_data;
  
-
+     std::vector<point> combined_sampled_clusters;
+     std::vector<uint32_t> cluster_sizes;
     //adaptive binning (distributes input surfels into descrite num. bins and projects them onto 2d plane)
     auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops);
 
@@ -252,7 +293,7 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
         }
 
 
-
+       
         //create oulines for underlying shape of a cluster 
         if(all_clusters_per_bin_vector.size() > 0){
 
@@ -289,37 +330,39 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
               #endif
 
 
+              #if 0 
+                  if(!use_nurbs){ //create straightforward line segments
 
-              if(!use_nurbs){ //create straightforward line segments
+                    uint32_t num_lines_to_push = (ordered_cluster.size()) - 1;
 
-                uint32_t num_lines_to_push = (ordered_cluster.size()) - 1;
-
-                for (uint line_idx = 0; line_idx < num_lines_to_push; ++line_idx) {
-                  
-                  line_data.emplace_back(ordered_cluster.at(line_idx), ordered_cluster.at(line_idx+1));
-                }
-              }else {//fit NURBS curve and evaluate it 
-/*
-                float sqrt_of_val = std::sqrt(0.5);
-                std::vector<point> fake_cluster = {    
-                                                      {1.0, 0, 0}, {sqrt_of_val, 0, sqrt_of_val}, {0, 0, 1}, 
-                                                      {- sqrt_of_val, 0, sqrt_of_val}, {-1, 0, 0}, {-sqrt_of_val, 0, -sqrt_of_val},
-                                                      {0, 0, -1}, {sqrt_of_val, 0, -sqrt_of_val}
-                                                  };
+                    for (uint line_idx = 0; line_idx < num_lines_to_push; ++line_idx) {
+                      
+                      line_data.emplace_back(ordered_cluster.at(line_idx), ordered_cluster.at(line_idx+1));
+                    }
+                  }else {//fit NURBS curve and evaluate it 
+    /*
+                    float sqrt_of_val = std::sqrt(0.5);
+                    std::vector<point> fake_cluster = {    
+                                                          {1.0, 0, 0}, {sqrt_of_val, 0, sqrt_of_val}, {0, 0, 1}, 
+                                                          {- sqrt_of_val, 0, sqrt_of_val}, {-1, 0, 0}, {-sqrt_of_val, 0, -sqrt_of_val},
+                                                          {0, 0, -1}, {sqrt_of_val, 0, -sqrt_of_val}
+                                                      };
 
 
-                std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(fake_cluster);
-*/
-                /*if(line_data_from_sampled_curve.size() > 1) {
-                  line_data_from_sampled_curve.push_back( line(line_data_from_sampled_curve[0].end, line_data_from_sampled_curve[line_data_from_sampled_curve.size()-1].start ) );
-                }*/
+                    std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(fake_cluster);
+    */
+                    /*if(line_data_from_sampled_curve.size() > 1) {
+                      line_data_from_sampled_curve.push_back( line(line_data_from_sampled_curve[0].end, line_data_from_sampled_curve[line_data_from_sampled_curve.size()-1].start ) );
+                    }*/
 
-                std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster);
-                for(auto& current_line : line_data_from_sampled_curve){
-                  line_data.emplace_back(current_line);
-                }
-              }
-
+                    std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster);
+                    for(auto& current_line : line_data_from_sampled_curve){
+                      line_data.emplace_back(current_line);
+                    }
+                  }
+              #endif
+                cluster_sizes.push_back(ordered_cluster.size());
+                combined_sampled_clusters.insert(combined_sampled_clusters.end(), ordered_cluster.begin(), ordered_cluster.end());
             }
           }
         }
@@ -327,7 +370,16 @@ inline std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data
           std::cout << "no clusters in the current layer \n"; 
         }
     }
-    return line_data;
+   // return line_data;
+   /// std::cout << "SIZE before interpolate_cluster_input: " << combined_sampled_clusters.size() << std::endl;
+    interpolate_cluster_input(combined_sampled_clusters, cluster_sizes);
+
+    std::cout << "After interpolating cluster input\n";
+    std::cout << "interpolate_cluster_input: " << combined_sampled_clusters.size() << "\n";
+   // std::cout << "SIZE AFTER interpolate_cluster_input: " << combined_sampled_clusters.size() << std::endl;
+    std::vector<line> combined_line_data = generate_lines_from_curve(combined_sampled_clusters);
+        std::cout << "After line from curve\n";
+    return combined_line_data; 
 }
 
 #endif //LINE_GEN_H
