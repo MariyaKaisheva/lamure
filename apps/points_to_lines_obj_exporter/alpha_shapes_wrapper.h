@@ -1,5 +1,5 @@
-#ifndef ALPHA_SHAPES_H_
-#define ALPHA_SHAPES_H_
+#ifndef ALPHA_SHAPES_H
+#define ALPHA_SHAPES_H
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/algorithm.h>
@@ -149,4 +149,4 @@ std::vector<point> do_output_conversion(std::vector<Segment> const& segments, fl
 }
 
 
-#endif //ALPHA_SHAPES_H_
+#endif //ALPHA_SHAPES_H
