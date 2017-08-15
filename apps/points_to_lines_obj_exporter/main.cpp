@@ -29,10 +29,8 @@
 #include "binning.h"
 #include "utils.h"
 #include "sampling.h"
-#include "color_hash_map.hpp"
 #include "math_wrapper.h"
 #include "point.hpp"
-#include "alpha-shapes_wrapper.h"
 #include "line_gen.h"
 
 
@@ -122,7 +120,7 @@ int main(int argc, char** argv)
 
 
     //create line representation of original input data
-    auto line_data = generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes);
+    auto line_data = line_gen::generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes);
 
     std::cout << "Num generated lines: " << line_data.size() << "\n";
     //transform data again to return to the original model orientation 
