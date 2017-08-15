@@ -19,7 +19,9 @@
   #pragma warning (disable : 4996)
 #endif
 
-namespace gpucast { namespace math {
+namespace npr {
+namespace gpucast {
+namespace math {
 
   /////////////////////////////////////////////////////////////////////////////////
   template <typename value_t, unsigned SIZE>
@@ -692,4 +694,6 @@ point<value_t, SIZE>::valid( ) const
     return lhs.length() < rhs.length();
   }
 
-} } // namespace gpucast / namespace math
+} //namespace math
+} //namespace gpucast 
+} //namespace npr

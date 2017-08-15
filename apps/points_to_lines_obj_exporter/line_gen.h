@@ -8,17 +8,17 @@
 #include <stack>
 
 
-struct line_approximation_job{
-	float start_t_;
-	float end_t_;
-	gpucast::math::point3d approximated_point_;
-
-	line_approximation_job (float start_t, float end_t, gpucast::math::point3d middle_point) : start_t_(start_t),
-                                                                                             end_t_(end_t), 
-                                                                                             approximated_point_(middle_point) {}
-};
-
+namespace npr {
 namespace line_gen {
+    struct line_approximation_job{
+        float start_t_;
+        float end_t_;
+        gpucast::math::point3d approximated_point_;
+
+        line_approximation_job (float start_t, float end_t, gpucast::math::point3d middle_point) : start_t_(start_t),
+                                                                                                 end_t_(end_t), 
+                                                                                                 approximated_point_(middle_point) {}
+    };
     //sort in descending order based on y coordinate value 
     bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B);
 
@@ -34,6 +34,7 @@ namespace line_gen {
                                      uint32_t& max_num_line_loops, 
                                      bool use_nurbs, 
                                      bool apply_alpha_shapes);
-}
+} //namespace line_gen
+} //namespace npr
 
 #endif //LINE_GEN_H

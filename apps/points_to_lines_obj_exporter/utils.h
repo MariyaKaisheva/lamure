@@ -47,7 +47,8 @@
 			bool is_member_of_cluster_;
 		};
 
-		namespace utils{
+namespace npr {
+namespace utils {
 			inline float compute_distance(lamure::vec3f const& pos1, lamure::vec3f const& pos2) {
 				lamure::vec3f distance_vector((pos1.x - pos2.x), (pos1.y - pos2.y), (pos1.z - pos2.z));
 				float result = std::sqrt(distance_vector.x*distance_vector.x +
@@ -461,6 +462,9 @@
 				line.end.pos_coordinates_[2] = transformed_end_z;
 			}
 		}; 
-	}
+} //utils
+} //npr
+
+
 
 #endif //UTILS_H

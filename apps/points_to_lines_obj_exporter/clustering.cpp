@@ -1,7 +1,10 @@
 #include "clustering.h"
 #include "utils.h"
 
-std::pair<float, point> clustering::
+namespace npr {
+namespace clustering {
+
+std::pair<float, point>
 find_nearest_neighbour (point const& start_point, std::vector<point> const& all_points) {
   float current_min = std::numeric_limits<float>::max();
   point current_nearest_neighbour;
@@ -30,7 +33,7 @@ find_nearest_neighbour (point const& start_point, std::vector<point> const& all_
 }
 
 
-std::vector<point*> clustering::
+std::vector<point*>
 find_near_neighbours(float max_distance, point const& start_point, std::vector<point>& all_points){
   std::vector<point*> neighbourhood;
   for(auto& p : all_points){
@@ -45,7 +48,7 @@ find_near_neighbours(float max_distance, point const& start_point, std::vector<p
   return neighbourhood; 
 }
 
-void clustering::
+void
 expand_cluster(point const& current_point, std::vector<point*>& neighbourhood, std::vector<point>& all_points_per_layer, clusters_t& current_cluster, float eps, uint8_t min_points) {
   current_cluster.push_back(current_point);
 
@@ -76,7 +79,7 @@ expand_cluster(point const& current_point, std::vector<point*>& neighbourhood, s
   }
 }
 
-std::vector<clusters_t> clustering::
+std::vector<clusters_t>
 create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t min_points){
   //create vector of points, containg all surfels per layer in point format
   std::vector<point> all_points_per_layer;
@@ -120,7 +123,7 @@ create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t 
 }
 
 
-std::vector<clusters_t> clustering::
+std::vector<clusters_t>
 create_clusters (bins_t const& all_surfels_per_layer){
    
   //create vector of points, containg all surfels per layer in point format
@@ -184,3 +187,6 @@ create_clusters (bins_t const& all_surfels_per_layer){
   //std::cout << cluster_counter << std::endl;
   return clusters_vector; 
 }
+
+} //namespace clustering
+} //namespace npr

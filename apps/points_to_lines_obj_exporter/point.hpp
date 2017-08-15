@@ -17,7 +17,9 @@
 #include <cassert>
 #include <array>
 
-namespace gpucast { namespace math {
+namespace npr {
+namespace gpucast { 
+namespace math {
 
   template <typename value_t, unsigned SIZE>
   class point
@@ -174,7 +176,9 @@ namespace gpucast { namespace math {
   typedef point<double, 2>  point2d;
   typedef point<double, 3>  point3d;
 
-} } // namespace gpucast / namespace math
+} //namespace math
+} //namespace gpucast 
+} //namespace npr
 
 #include "point_impl.hpp"
 

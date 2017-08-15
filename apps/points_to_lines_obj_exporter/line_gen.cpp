@@ -5,13 +5,17 @@
 #include "sampling.h"
 #include "alpha_shapes_wrapper.h"
 
+namespace npr {
+namespace line_gen{
+
 //sort in descending order based on y coordinate value 
-bool line_gen::comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
+bool 
+comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
     return A.pos_coordinates[1] < B.pos_coordinates[1];
 }
 
-gpucast::math::point3d line_gen::
- get_midpoint(gpucast::math::point3d const& start_point, gpucast::math::point3d const& end_point) {
+gpucast::math::point3d 
+get_midpoint(gpucast::math::point3d const& start_point, gpucast::math::point3d const& end_point) {
 	auto x = (start_point[0] + end_point[0]) / 2.0;
   	auto y = (start_point[1] + end_point[1]) / 2.0;
   	auto z = (start_point[2] + end_point[2]) / 2.0;
@@ -19,8 +23,8 @@ gpucast::math::point3d line_gen::
   	return middle_point;
 }
 
-void line_gen::
- interpolate_cluster_input(std::vector<point> & combined_cluster_points, std::vector<uint32_t> const& original_cluster_sizes){
+void 
+interpolate_cluster_input(std::vector<point> & combined_cluster_points, std::vector<uint32_t> const& original_cluster_sizes){
   auto num_clusters = original_cluster_sizes.size();
   auto first_point_index = 0;
   auto last_point_index = original_cluster_sizes[0] + original_cluster_sizes[1] - 1;
@@ -54,7 +58,7 @@ void line_gen::
   }
 }
 
-std::vector<line> line_gen::
+std::vector<line> 
  generate_lines_from_curve (std::vector<point> const& ordered_points) {
  
   //coppy cluster content to vector of control points
@@ -226,7 +230,7 @@ std::vector<line> line_gen::
   return line_segments_vec;
 }
 
-std::vector<line> line_gen::
+std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_loops, bool use_nurbs, bool apply_alpha_shapes){
 	uint32_t current_cluster_id = 0;
 	uint8_t order = 5; //TODO consider changeing this variable to user-defined one
@@ -372,3 +376,6 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
         std::cout << "After line from curve\n";
    // return combined_line_data; 
 }
+
+} //namespace line_gen
+} //namespace npr

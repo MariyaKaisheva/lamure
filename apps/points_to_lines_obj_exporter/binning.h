@@ -7,6 +7,9 @@
 
 #include "utils.h"
 
+namespace npr {
+namespace binning {
+
 	class bin{
 		public:
 			bin(std::vector<xyzall_surfel_t> const& input_surfels, float upper_bound, float lower_bound, float axis_location) : 
@@ -79,9 +82,11 @@
 		evaluation_job (uint top_id, uint bottom_id) : top_bin_id_(top_id), bottom_bin_id_(bottom_id) {}
 	};
 
-	namespace binning {
-		bool evaluate_similarity(bin const& bin_A, bin const& bin_B);
-		std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const inital_bin_half_height, uint& max_num_loops);
-	}		
+
+
+	bool evaluate_similarity(bin const& bin_A, bin const& bin_B);
+	std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const inital_bin_half_height, uint& max_num_loops);
+} //namespace binning
+} //namespace npr
 
 #endif //BINNING_H

@@ -30,7 +30,8 @@
 #include "point.hpp"
 #include "line_gen.h"
 
-namespace core{
+namespace npr {
+namespace core {
     void generate_line_art(scm::math::mat4f user_defined_rot_mat, 
                             std::string bvh_filename, 
                             int32_t depth, 
@@ -38,6 +39,6 @@ namespace core{
                             bool use_nurbs,
                             bool apply_alpha_shapes,
                             uint32_t max_number_line_loops);
-}
-
+} //namespace core
+} //namespace npr
 #endif //CORE_H

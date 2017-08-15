@@ -12,7 +12,9 @@
 #ifndef GPUCAST_MATH_NURBSCURVE_IMPL_HPP
 #define GPUCAST_MATH_NURBSCURVE_IMPL_HPP
 
-namespace gpucast { namespace math {
+namespace npr {
+namespace gpucast { 
+namespace math {
 
   //////////////////////////////////////////////////////////////////////////////
   template<typename point_t>
@@ -421,6 +423,8 @@ namespace gpucast { namespace math {
     return os;
   }
 
-} } // namespace gpucast / namespace math
+} //namespace math 
+} //namespace gpucast
+} //namespace npr
 
 #endif // GPUCAST_MATH_NURBSCURVE_IMPL_HPP

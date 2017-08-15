@@ -7,7 +7,8 @@
 
 #define DEFAULT_PRECISION 15
 
-namespace io{
+namespace npr {
+namespace io {
 
 	inline char* get_cmd_option(char** begin, char** end, const std::string & option) {
 	    char** it = std::find(begin, end, option);
@@ -108,8 +109,9 @@ namespace io{
 
 	    std::cout << "Output: " << output_filename << std::endl;
 	}
-}
 
+} //namespace io
+} //namespace npr
 
 
 #endif //INPUT_OUTPUT_H

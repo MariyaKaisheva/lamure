@@ -16,7 +16,8 @@
 #include <vector>
 #include <list>
 
-namespace alpha{
+namespace npr {
+namespace alpha {
 
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
@@ -146,7 +147,8 @@ std::vector<point> do_output_conversion(std::vector<Segment> const& segments, fl
 	return clened_sorted_points_vec;
 }
 
-}
+} //namespace alpha
+} //namespace npr
 
 
 #endif //ALPHA_SHAPES_H

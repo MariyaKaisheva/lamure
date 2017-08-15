@@ -2,8 +2,10 @@
 	
 #include <alglib/cpp/include/interpolation.h>
 
+namespace npr {
+namespace math {
 
-	std::vector<double> math::
+	std::vector<double> 
 	fit_polynomial (std::vector<std::pair<double, double>> const& coordinates, int const polynomial_degree) {
 
 		auto num_points = coordinates.size();
@@ -50,13 +52,6 @@
                             point_weights, point_x_coord_constraints, point_y_coord_constraints, point_constraint_types,
                             number_of_poly_degree_plus_1, error_info, bary_interp, fit_report);
 
-
-    	/*
-    	alglib::polynomialfit(point_x_coords, point_y_coords, 
-                              
-                            number_of_poly_degree_plus_1, error_info, bary_interp, fit_report);
-                            */
-   		std::cout << "Halfway through" << std::endl;
     	//cast barycentric interpolant to coefficients for x^0 ... x^(n-1))
     	alglib::real_1d_array fit_coefficients;
     	alglib::polynomialbar2pow(bary_interp, fit_coefficients);
@@ -75,3 +70,5 @@
     //cast barycentric interpolant to coefficients for x^0 ... x^(n-1))
     alglib::real_1d_array fit_coefficients;
     alglib::polynomialbar2pow(bary_interp, fit_coefficients);*/
+} //namespace math
+} //namespace npr

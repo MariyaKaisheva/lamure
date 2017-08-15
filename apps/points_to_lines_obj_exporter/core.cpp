@@ -1,7 +1,9 @@
 #include "core.h"
 
+namespace npr {
+namespace core {
 
-void core::
+void
  generate_line_art(scm::math::mat4f user_defined_rot_mat, 
                 std::string bvh_filename,
                 int32_t depth, 
@@ -103,4 +105,7 @@ void core::
 
         delete in_access;
         delete bvh;
-    }  
+    }
+
+} //namespace core
+} //namespace npr

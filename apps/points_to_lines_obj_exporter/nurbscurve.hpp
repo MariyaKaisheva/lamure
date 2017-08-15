@@ -22,7 +22,9 @@
 // header, project
 #include "point.hpp"
 
-namespace gpucast { namespace math {
+namespace npr {
+namespace gpucast { 
+namespace math {
 
   template<typename point_t>
   class nurbscurve
@@ -105,7 +107,9 @@ namespace gpucast { namespace math {
   typedef nurbscurve<point3f> nurbscurve3f;
   typedef nurbscurve<point3d> nurbscurve3d;
 
-} } // namespace gpucast / namespace math
+} //namespace math
+} //namespace gpucast
+} //namespace npr
 
 #include "nurbscurve_impl.hpp"
 

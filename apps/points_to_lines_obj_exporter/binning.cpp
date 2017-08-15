@@ -9,7 +9,10 @@
 #include <string>
 #include <sstream>
 
-bool binning::
+
+namespace npr {
+namespace binning {
+bool 
   evaluate_similarity(bin const& bin_A, bin const& bin_B){
 
  	//coefficents used by computation of Jaccard index
@@ -69,7 +72,7 @@ bool binning::
  	}
 }
 
-std::vector<bin> binning::
+std::vector<bin> 
  generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const initial_bound_value, uint& max_num_layers){
  	
  	std::vector<bin> bins;
@@ -100,7 +103,7 @@ std::vector<bin> binning::
                 
             uint grid_resolution = 80; //num cells pro dim for generation of binary_image for bin comparison
 
-            #if 0 //split-based adaptive binning
+            #if 1 //split-based adaptive binning
             
                 float current_pos_along_slicing_axis = bounding_corners.min_y + initial_bound_value;
 
@@ -220,3 +223,7 @@ std::vector<bin> binning::
     //std::cout << "Finally returning " << bins.size() << " bins\n";
  	return bins;
 }
+
+
+} //namespace binning
+} //namespace npr

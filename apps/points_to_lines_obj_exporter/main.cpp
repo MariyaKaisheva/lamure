@@ -34,6 +34,7 @@
 #include "line_gen.h"
 #include "core.h"
 
+using namespace npr;
 
 int main(int argc, char** argv)
 {
