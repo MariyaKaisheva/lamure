@@ -75,7 +75,7 @@ std::vector<line> line_gen::
 
    //connect first to last segment
    auto first_point = control_points_vec[0];
-   //control_points_vec.push_back(first_point);
+   control_points_vec.push_back(first_point);
 
    //num control points must be >= order (degree + 1)
    if (control_points_vec.size() < degree + 1) {
