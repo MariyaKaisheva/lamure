@@ -34,6 +34,11 @@ int main(int argc, char** argv)
 
     bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
     uint32_t max_number_line_loops = 85;
+
+    bool is_verbose_option_1 = io::cmd_option_exists(argv, argv + argc, "--verbose");
+    bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
+    bool is_verbose = is_verbose_option_1 | is_verbose_option_2;
+
     if(io::cmd_option_exists(argv, argv+argc, "-l")){
      max_number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
     }
@@ -44,7 +49,7 @@ int main(int argc, char** argv)
 
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
                         write_obj_file, use_nurbs, apply_alpha_shapes,
-                        max_number_line_loops);
+                        max_number_line_loops, is_verbose);
 
     return 0;
 }
