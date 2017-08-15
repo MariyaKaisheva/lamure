@@ -4,35 +4,7 @@
 // Virtual Reality and Visualization Research Group 
 // Faculty of Media, Bauhaus-Universitaet Weimar
 // http://www.uni-weimar.de/medien/vr
-
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <set>
-#include <algorithm>
-#include <memory>
-#include <limits>
-#include <random>
-
-#include <scm/gl_core/math.h>
-
-#include <lamure/ren/model_database.h>
-#include <lamure/bounding_box.h>
-#include <lamure/types.h>
-#include <lamure/ren/dataset.h>
-#include <lamure/ren/bvh.h>
-#include <lamure/ren/lod_stream.h>
-
-#include "input_output.h"
-#include "binning.h"
-#include "utils.h"
-#include "sampling.h"
-#include "math_wrapper.h"
-#include "point.hpp"
-#include "line_gen.h"
-#include "core.h"
+#include <lamure/npr/core.h>
 
 using namespace npr;
 

@@ -149,15 +149,18 @@ endif (${LAMURE_USE_CGAL_FOR_NNI})
 add_subdirectory(${CMAKE_SOURCE_DIR}/common)
 add_subdirectory(${CMAKE_SOURCE_DIR}/preprocessing)
 add_subdirectory(${CMAKE_SOURCE_DIR}/rendering)
+add_subdirectory(${CMAKE_SOURCE_DIR}/npr_processing)
 add_subdirectory(${CMAKE_SOURCE_DIR}/quality_measurement)
 add_subdirectory(${CMAKE_SOURCE_DIR}/apps)
 add_subdirectory(${CMAKE_SOURCE_DIR}/tests)
 
 add_dependencies(lamure_preprocessing lamure_common)
 add_dependencies(lamure_rendering lamure_common)
+add_dependencies(lamure_npr_processing lamure_rendering)
 
 set_target_properties(lamure_common PROPERTIES DEBUG_POSTFIX "d")
 set_target_properties(lamure_rendering PROPERTIES DEBUG_POSTFIX "d")
 set_target_properties(lamure_preprocessing PROPERTIES DEBUG_POSTFIX "d")
+set_target_properties(lamure_npr_processing PROPERTIES DEBUG_POSTFIX "d")
 set_target_properties(lamure_quality_measurement PROPERTIES DEBUG_POSTFIX "d")
 
