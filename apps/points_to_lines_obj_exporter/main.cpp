@@ -47,9 +47,27 @@ int main(int argc, char** argv)
     bool apply_alpha_shapes = io::cmd_option_exists(argv, argv + argc, "--apply_alpha_shapes");
     auto user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
 
+
+    std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
+    std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
+
+    //std::string rot_substring_without_path = rot_filename.substr(rot_filename.find_last_of("/\\") + 1); 
+    //std::string rot_substring_without_path_and_extension = rot_substring_without_path.substr(0, rot_substring_without_path.size() - 4 );
+
+    //std::string rot_substring = rot_filename.substr(0, rot_filename.size()-4);
+    scm::math::quat<double> output_quat;
+    output_quat = scm::math::quat<double>::from_matrix(scm::math::mat4d(user_defined_rot_mat));
+    double angle; 
+    scm::math::vec3d axis; 
+    output_quat.retrieve_axis_angle(angle, axis);
+
+    std::string output_base_name = bvh_filename_without_path_and_extension
+                                         + "_d" + std::to_string(depth)
+                                         + "_angle_"  + std::to_string(angle);
+
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
                         write_obj_file, use_nurbs, apply_alpha_shapes,
-                        max_number_line_loops, is_verbose);
+                        output_base_name, max_number_line_loops, is_verbose);
 
     return 0;
 }

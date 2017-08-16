@@ -38,6 +38,7 @@ namespace core {
                             bool write_obj_file,
                             bool use_nurbs,
                             bool apply_alpha_shapes,
+                            std::string output_base_name,
                             uint32_t max_number_line_loops,
                             bool is_verbose = false);
 } //namespace core

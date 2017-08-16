@@ -10,6 +10,7 @@ void
                    bool write_obj_file,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
+                   std::string output_base_name,
                    uint32_t max_number_line_loops,
                    bool is_verbose)
     {
@@ -80,21 +81,8 @@ void
         std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
         #endif
 
-        std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
-        std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
-
-        //std::string rot_substring_without_path = rot_filename.substr(rot_filename.find_last_of("/\\") + 1); 
-        //std::string rot_substring_without_path_and_extension = rot_substring_without_path.substr(0, rot_substring_without_path.size() - 4 );
-
-        //std::string rot_substring = rot_filename.substr(0, rot_filename.size()-4);
-
-        std::string output_files_base_name =   bvh_filename_without_path_and_extension + "_LA_preview";
-                                            /* + "_d" + std::to_string(depth) 
-                                             + "_l" + std::to_string(max_number_line_loops) 
-                                             + "_"  + /*+ rot_substring_without_path_and_extension;*/
-
-        std::string obj_filename = output_files_base_name + ".obj";
-        std::string xyz_all_filename = output_files_base_name + ".xyz_all";
+        std::string obj_filename = output_base_name + ".obj";
+        std::string xyz_all_filename = output_base_name + ".xyz_all";
        
 
         if(write_obj_file){
@@ -105,7 +93,8 @@ void
         
         if(is_verbose) {
             std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
-            std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;  
+            std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;
+            std::cout << "Num slicing layers" << max_number_line_loops << std::endl;
             std::cout << "--------------- ok ----------------\n";
         }
 
