@@ -84,7 +84,7 @@ namespace binning {
 
 
 
-	bool evaluate_similarity(bin const& bin_A, bin const& bin_B);
+	bool evaluate_similarity(bin const& bin_A, bin const& bin_B, bool using_merge_binning);
 	std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const inital_bin_half_height, uint& max_num_loops);
 } //namespace binning
 } //namespace npr

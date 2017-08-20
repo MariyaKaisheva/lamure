@@ -18,6 +18,7 @@ int main(int argc, char** argv)
       return 0;
     }
 
+    //get input for point cloud model and corresponding rotaion file
     std::string rot_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
     std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));
     std::string ext_bvh = bvh_filename.substr(bvh_filename.size()-3);
@@ -27,6 +28,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
+    //check user preferences
     int32_t depth = -1;
     if(io::cmd_option_exists(argv, argv+argc, "-d")){
       depth = atoi(io::get_cmd_option(argv, argv+argc, "-d"));
@@ -39,10 +41,12 @@ int main(int argc, char** argv)
     bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
     bool is_verbose = is_verbose_option_1 | is_verbose_option_2;
 
+    bool without_lod_adjustment = io::cmd_option_exists(argv, argv + argc, "--no_reduction");
+
     if(io::cmd_option_exists(argv, argv+argc, "-l")){
      max_number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
     }
-    //check user preferences
+
     bool use_nurbs = io::cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
     bool apply_alpha_shapes = io::cmd_option_exists(argv, argv + argc, "--apply_alpha_shapes");
     auto user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
@@ -66,8 +70,9 @@ int main(int argc, char** argv)
                                          + "_angle_"  + std::to_string(angle);
 
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
-                        write_obj_file, use_nurbs, apply_alpha_shapes,
-                        output_base_name, max_number_line_loops, is_verbose);
+                            write_obj_file, use_nurbs, apply_alpha_shapes,
+                            output_base_name, max_number_line_loops, 
+                            without_lod_adjustment, is_verbose);
 
     return 0;
 }

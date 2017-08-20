@@ -12,6 +12,7 @@ void
                    bool apply_alpha_shapes,
                    std::string output_base_name,
                    uint32_t max_number_line_loops,
+                   bool without_lod_adjustment,
                    bool is_verbose)
     {
 
@@ -63,6 +64,15 @@ void
             surfel.pos_coordinates[2] = transformed_coord.z; 
         }
 
+
+        //reduce number of slicing layers proporional to selected LoD
+        // lower LoD => less layers to avoid degenerated clustering
+        if(!without_lod_adjustment){
+            auto depth_difference = (bvh->get_depth() - depth);
+            max_number_line_loops = max_number_line_loops / std::pow(2, depth_difference * 0.5);
+        }
+
+
         //create line representation of original input data
         auto line_data = line_gen::generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes);
         if(is_verbose) {
@@ -94,7 +104,7 @@ void
         if(is_verbose) {
             std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
             std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;
-            std::cout << "Num slicing layers" << max_number_line_loops << std::endl;
+            std::cout << "Num slicing layers: " << max_number_line_loops << std::endl;
             std::cout << "--------------- ok ----------------\n";
         }
 

@@ -13,7 +13,7 @@
 namespace npr {
 namespace binning {
 bool 
-  evaluate_similarity(bin const& bin_A, bin const& bin_B){
+  evaluate_similarity(bin const& bin_A, bin const& bin_B, bool merge_binning){
 
  	//coefficents used by computation of Jaccard index
  	uint m_11 = 0; //both binary values = 1
@@ -39,8 +39,7 @@ bool
  			++m_00;
  		}
  	}
- 	//std::cout << "DENOMINATOR: " << m_01 + m_10 + m_11 << "\n";
-
+ 
  	float jaccard_enumerator = m_11 ;
  	float jaccard_denominator = (m_01 + m_10 + m_11);
 
@@ -50,20 +49,19 @@ bool
  		jaccard_index = jaccard_enumerator / jaccard_denominator;
  	}
 
- 	float base_sensitivity = 0.38;
 
- 	float splitting_depth_dependent_sensitivity = base_sensitivity;
+    float splitting_depth_dependent_sensitivity = 0.30;
 
- 	uint32_t max_split_depth = std::max(bin_A.bin_depth, bin_B.bin_depth);
- 	
- 	/*for(uint split_depth_idx = 0; split_depth_idx < max_split_depth; ++split_depth_idx) {
- 		splitting_depth_dependent_sensitivity *= 0.58;
- 	}*/
+    if(!merge_binning){
+        float base_sensitivity = 0.38;
+        splitting_depth_dependent_sensitivity = base_sensitivity;
+        uint32_t max_split_depth = std::max(bin_A.bin_depth, bin_B.bin_depth);
 
-    #if 1
-    splitting_depth_dependent_sensitivity = 0.30;
-    #endif
-
+        for(uint split_depth_idx = 0; split_depth_idx < max_split_depth; ++split_depth_idx) {
+            splitting_depth_dependent_sensitivity *= 0.58;
+        } 
+    }    
+    
  	//std::cout << "Jaccard Index: " << jaccard_index << std::endl;
   	if(jaccard_index > splitting_depth_dependent_sensitivity){
  		return true; //the 2 binary images are similar => no additional bin should be created between them
@@ -103,7 +101,7 @@ std::vector<bin>
                 
             uint grid_resolution = 80; //num cells pro dim for generation of binary_image for bin comparison
 
-            #if 1 //split-based adaptive binning
+            #if 0 //split-based adaptive binning
             
                 float current_pos_along_slicing_axis = bounding_corners.min_y + initial_bound_value;
 
@@ -142,7 +140,7 @@ std::vector<bin>
 
                     //std::cout << "Evaluating top bin: " << top_id << " against bottom bin: " << bottom_id << "\n";
 
-                    bool are_bins_similar = evaluate_similarity(top_bin, bottom_bin);
+                    bool are_bins_similar = evaluate_similarity(top_bin, bottom_bin, false);
                     if (!are_bins_similar){
 
 
@@ -204,7 +202,7 @@ std::vector<bin>
                 std::advance(it2, 1);
                 bins.push_back(*it1);
                 while(it2 != working_list_of_bins.end()){
-                    bool are_bins_similar = evaluate_similarity(*it1, *it2);
+                    bool are_bins_similar = evaluate_similarity(*it1, *it2, true);
                     if(are_bins_similar){
                         it2 = working_list_of_bins.erase(it2);
 

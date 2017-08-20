@@ -28,7 +28,7 @@ namespace line_gen {
     void interpolate_cluster_input(std::vector<point> & combined_cluster_points, 
                                    std::vector<uint32_t> const& original_cluster_sizes);
 
-    std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points, bool is_verbose = false);
+    std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points, uint8_t degree = 3, bool is_verbose = false);
 
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                                      uint32_t& max_num_line_loops, 

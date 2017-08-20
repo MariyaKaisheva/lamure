@@ -40,6 +40,7 @@ namespace core {
                             bool apply_alpha_shapes,
                             std::string output_base_name,
                             uint32_t max_number_line_loops,
+                            bool with_lod_adjustment = true,
                             bool is_verbose = false);
 } //namespace core
 } //namespace npr

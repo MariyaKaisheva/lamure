@@ -58,7 +58,7 @@ interpolate_cluster_input(std::vector<point> & combined_cluster_points, std::vec
 }
 
 std::vector<line> 
- generate_lines_from_curve (std::vector<point> const& ordered_points, bool is_verbose) {
+ generate_lines_from_curve (std::vector<point> const& ordered_points, uint8_t degree, bool is_verbose) {
  
   //coppy cluster content to vector of control points
   std::vector<gpucast::math::point3d> control_points_vec(ordered_points.size());
@@ -74,17 +74,15 @@ std::vector<line>
   }
 
 
-   uint8_t degree = 3;
-
    //connect first to last segment
    auto first_point = control_points_vec[0];
    control_points_vec.push_back(first_point);
 
    //num control points must be >= order (degree + 1)
-   if (control_points_vec.size() < degree + 1) {
+   /*if (control_points_vec.size() < degree + 1) {
       throw std::runtime_error("Insufficient number of control points");
       degree = control_points_vec.size() - 1;
-   }
+   }*/
 /*
      std::cout << "Control point x_coord: [";
   for(auto cp :  control_points_vec){
@@ -234,7 +232,7 @@ std::vector<line>
 std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_loops, bool use_nurbs, bool apply_alpha_shapes, bool is_verbose){
 	uint32_t current_cluster_id = 0;
-	uint8_t order = 5; //TODO consider changeing this variable to user-defined one
+	uint8_t degree = 3; //TODO consider changeing this variable to user-defined one
 
 	//parameters used for distance-based sampling; TODO make them use input dependent if still used in the long run
     uint32_t max_num_points = 40;
@@ -272,7 +270,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
         }
 
         //set parameters for DBSCAN
-		float eps = avg_min_distance_per_bin * 20.0; // radis of search area
+		float eps = avg_min_distance_per_bin * 6.0; // radis of search area
 		uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
 		//generate clusters 
@@ -301,11 +299,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
           for(auto& current_cluster : all_clusters_per_bin_vector){
             uint32_t cluster_size = current_cluster.size();
 
-            if( cluster_size <= order ) {
-              continue;
-            }
 
-            if(cluster_size > order) { //at least 2 vertices per cluster are need for one complete line
+            //for nurbs fitting:  num controll points should be at least as much as the order of the curve
+            //smaller glusters should be ignored 
+            if(cluster_size > degree + 1) { 
               if(is_verbose) {
                 std::cout << "Cluster size " << cluster_size << std::endl;
               }
@@ -334,6 +331,13 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
                 auto& ordered_cluster = sampled_cluster;
               #endif
 
+              //recheck cluster size sufficiency after the potential reduction during alpha-shapes detection  
+              if( ordered_cluster.size() <= degree + 1 ) {
+                  if(is_verbose) {
+                    std::cout << "cluster with " << ordered_cluster.size() << " points was skipped \n";
+                  }
+                  continue;
+                }
 
               #if 1 
                   if(!use_nurbs){ //create straightforward line segments
@@ -360,7 +364,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
                       line_data_from_sampled_curve.push_back( line(line_data_from_sampled_curve[0].end, line_data_from_sampled_curve[line_data_from_sampled_curve.size()-1].start ) );
                     }*/
 
-                    std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster);
+                    std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster, degree);
                     for(auto& current_line : line_data_from_sampled_curve){
                       line_data.emplace_back(current_line);
                     }
