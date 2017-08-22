@@ -69,7 +69,7 @@ void
         // lower LoD => less layers to avoid degenerated clustering
         if(!without_lod_adjustment){
             auto depth_difference = (bvh->get_depth() - depth);
-            max_number_line_loops = max_number_line_loops / std::pow(2, depth_difference * 0.5);
+            max_number_line_loops = std::ceil(max_number_line_loops / std::pow(2, depth_difference * 0.5));
         }
 
 
