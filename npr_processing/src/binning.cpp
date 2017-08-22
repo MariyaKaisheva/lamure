@@ -50,7 +50,7 @@ bool
  	}
 
 
-    float splitting_depth_dependent_sensitivity = 0.30;
+    float splitting_depth_dependent_sensitivity = 1.0;
 
     if(!merge_binning){
         float base_sensitivity = 0.38;

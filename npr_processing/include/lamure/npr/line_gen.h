@@ -10,6 +10,9 @@
 
 namespace npr {
 namespace line_gen {
+
+using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
+
     struct line_approximation_job{
         float start_t_;
         float end_t_;
@@ -28,7 +31,18 @@ namespace line_gen {
     void interpolate_cluster_input(std::vector<point> & combined_cluster_points, 
                                    std::vector<uint32_t> const& original_cluster_sizes);
 
-    std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points, uint8_t degree = 3, bool is_verbose = false);
+    void rotate(clusters_t & point_cluster);
+
+    gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, uint8_t degree, bool is_verbose);
+
+    //std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points, uint8_t degree = 3, bool is_verbose = false);
+
+    std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d& nurbs_curve, bool dynamic_sampling_step);
+
+    std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d& top_curve, 
+                                            gpucast::math::nurbscurve3d& bottom_curve);
+
+    nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec);
 
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                                      uint32_t& max_num_line_loops, 
