@@ -47,8 +47,9 @@ int main(int argc, char** argv)
      max_number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
     }
 
-    bool use_nurbs = io::cmd_option_exists(argv, argv + argc, "--apply_nurbs_fitting");
-    bool apply_alpha_shapes = io::cmd_option_exists(argv, argv + argc, "--apply_alpha_shapes");
+    bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
+    bool apply_alpha_shapes = !io::cmd_option_exists(argv, argv + argc, "--no_alpha_shapes");
+    bool spiral_look = io::cmd_option_exists(argv, argv + argc, "--generate_spirals");
     auto user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
 
 
@@ -70,7 +71,8 @@ int main(int argc, char** argv)
                                          + "_angle_"  + std::to_string(angle);
 
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
-                            write_obj_file, use_nurbs, apply_alpha_shapes,
+                            write_obj_file, use_nurbs,
+                            apply_alpha_shapes, spiral_look,
                             output_base_name, max_number_line_loops, 
                             without_lod_adjustment, is_verbose);
 

@@ -48,6 +48,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
                                      uint32_t& max_num_line_loops, 
                                      bool use_nurbs, 
                                      bool apply_alpha_shapes,
+                                     bool spiral_look = false,
                                      bool is_verbose = false);
 } //namespace line_gen
 } //namespace npr

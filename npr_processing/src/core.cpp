@@ -10,6 +10,7 @@ void
                    bool write_obj_file,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
+                   bool spiral_look,
                    std::string output_base_name,
                    uint32_t max_number_line_loops,
                    bool without_lod_adjustment,
@@ -74,7 +75,7 @@ void
 
 
         //create line representation of original input data
-        auto line_data = line_gen::generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes);
+        auto line_data = line_gen::generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes, spiral_look);
         if(is_verbose) {
             std::cout << "Num generated lines: " << line_data.size() << "\n";
         }

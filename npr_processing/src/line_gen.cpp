@@ -280,7 +280,11 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec){
 }
 
 std::vector<line> 
-generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_loops, bool use_nurbs, bool apply_alpha_shapes, bool is_verbose){
+generate_lines(std::vector<xyzall_surfel_t>& input_data, 
+               uint32_t& max_num_line_loops, bool use_nurbs, 
+               bool apply_alpha_shapes, bool spiral_look,
+               bool is_verbose){
+
 	uint32_t current_cluster_id = 0;
 	uint8_t degree = 3; //TODO consider changeing this variable to user-defined one
   bool color = true; //TODO make dependent on --write_xyz_points
@@ -416,20 +420,22 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
                 }
 
               }else {//fit NURBS curve 
-
                 auto cluster_approximating_curve = fit_curve(ordered_cluster, degree, false);
-                curves_in_current_bin.push_back(cluster_approximating_curve);
-
-                /*std::vector<line> line_data_from_sampled_curve = generate_lines_from_curve(ordered_cluster, degree);
-                for(auto& current_line : line_data_from_sampled_curve){
-                  line_data.emplace_back(current_line);
-                }*/
+                if(spiral_look){     
+                  curves_in_current_bin.push_back(cluster_approximating_curve);
+                }else{
+                  std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);
+                  for(auto& current_line : line_data_from_sampled_curve){
+                    line_data.emplace_back(current_line);
+                  }
+                }
               }
-
             }
           }
 
-          guiding_nurbs_vec.push_back(curves_in_current_bin);
+          if(spiral_look){
+            guiding_nurbs_vec.push_back(curves_in_current_bin);
+          }
 
         }
         else{
@@ -439,7 +445,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
         }
     }
 
-    if(use_nurbs){
+    if(use_nurbs && spiral_look){
       std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec);
       bool adaptive = true; 
       for(auto& current_spiral_section : final_curves_vec){
@@ -447,7 +453,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data, uint32_t& max_num_line_
         std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
 
         for(auto& current_line : line_data_from_sampled_curve){
-                  line_data.emplace_back(current_line);
+            line_data.emplace_back(current_line);
         }
       }
     }
