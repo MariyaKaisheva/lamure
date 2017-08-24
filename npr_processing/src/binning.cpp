@@ -22,12 +22,7 @@ bool
  	uint m_00 = 0; //both binary values = 0
  	uint num_cells = bin_A.binary_image_.size(); //bin_A and bin_B have binary_image vectors of equal size
 
- 	//std::cout << "Size of binary image a: "  << num_cells << std::endl;
- 	//std::cout << "Size of binary image b: "  << bin_B.binary_image_.size() << std::endl;
-
  	for(uint cell_iterator = 0; cell_iterator < num_cells; ++cell_iterator){
-
- 		uint32_t total_num_points_in_cells = bin_A.binary_image_[cell_iterator] + bin_B.binary_image_[cell_iterator];
 
  		if( (bin_A.binary_image_[cell_iterator] > 0) && (bin_B.binary_image_[cell_iterator] > 0) ){
  			++m_11;
@@ -50,7 +45,7 @@ bool
  	}
 
 
-    float splitting_depth_dependent_sensitivity = 1.0;
+    float splitting_depth_dependent_sensitivity = 0.3;
 
     if(!merge_binning){
         float base_sensitivity = 0.38;

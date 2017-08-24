@@ -231,26 +231,36 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   //std::cout << "knot span After: " << top_curve.get_knotspan() << std::endl;
   bottom_curve.normalize_knotvector();
 
-  std::vector<point> blended_points; 
-  uint32_t num_blending_points = 100;
+
+  uint32_t num_points_per_winding = 100;
 
   float evaluation_offset = 0.0001;
-  float parameter_t = evaluation_offset;
-  float sampling_step = 1.0 / num_blending_points;
 
+  uint32_t windings = 4;
+  float sampling_step = (1.0) / num_points_per_winding;
+  uint32_t num_blending_points = num_points_per_winding * windings;
+
+  std::vector<point> blended_points(num_blending_points); 
+
+  #pragma omp parallel for
   for (uint32_t point_counter = 0; point_counter < num_blending_points; ++point_counter){
-    auto top_curve_sample = top_curve.evaluate(parameter_t);
-    auto bottom_curve_sample = bottom_curve.evaluate(parameter_t); 
-    
-    float blended_x = (1 - parameter_t) * top_curve_sample[0] + parameter_t * bottom_curve_sample[0];
-    float blended_y = (1 - parameter_t) * top_curve_sample[1] + parameter_t * bottom_curve_sample[1];
-    float blended_z = (1 - parameter_t) * top_curve_sample[2] + parameter_t * bottom_curve_sample[2];
+
+    float accumulated_t = point_counter * sampling_step + evaluation_offset;
+
+    float fractional_of_accumulated_t = std::fmod(accumulated_t, 1.0);
+    float sampling_parameter_t = std::max(evaluation_offset, fractional_of_accumulated_t);
+
+    float blend_parameter = accumulated_t / float(windings);
+
+    auto top_curve_sample = top_curve.evaluate(sampling_parameter_t);
+    auto bottom_curve_sample = bottom_curve.evaluate(sampling_parameter_t); 
+
+    float blended_x = (1.0 - blend_parameter) * top_curve_sample[0] + blend_parameter * bottom_curve_sample[0];
+    float blended_y = (1.0 - blend_parameter) * top_curve_sample[1] + blend_parameter * bottom_curve_sample[1];
+    float blended_z = (1.0 - blend_parameter) * top_curve_sample[2] + blend_parameter * bottom_curve_sample[2];
     float pos_coordinates[3] = {blended_x, blended_y, blended_z};
            
-    point new_blended_point (pos_coordinates);
-    
-    parameter_t += sampling_step; 
-    blended_points.push_back(new_blended_point);
+    blended_points[point_counter] = point(pos_coordinates);
   }
 
   return blended_points; 
@@ -327,7 +337,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
         }
 
         //set parameters for DBSCAN
-    		float eps = avg_min_distance_per_bin * 20.0; // radis of search area
+    		float eps = avg_min_distance_per_bin * 8.0; // radis of search area
     		uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
     		//generate clusters 
@@ -425,9 +435,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                   curves_in_current_bin.push_back(cluster_approximating_curve);
                 }else{
                   std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);
-                  for(auto& current_line : line_data_from_sampled_curve){
-                    line_data.emplace_back(current_line);
-                  }
+                  line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
+
                 }
               }
             }
@@ -451,10 +460,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       for(auto& current_spiral_section : final_curves_vec){
 
         std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
+        line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
 
-        for(auto& current_line : line_data_from_sampled_curve){
-            line_data.emplace_back(current_line);
-        }
       }
     }
 
