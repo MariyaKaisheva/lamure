@@ -40,9 +40,10 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
     std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d& nurbs_curve, bool dynamic_sampling_step);
 
     std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d& top_curve, 
-                                            gpucast::math::nurbscurve3d& bottom_curve);
+                                            gpucast::math::nurbscurve3d& bottom_curve,
+                                            float max_distance);
 
-    nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec);
+    nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, float max_distance);
 
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                                      uint32_t& max_num_line_loops, 

@@ -51,16 +51,22 @@ namespace math {
   }
 
 
+  
+
   //////////////////////////////////////////////////////////////////////////////
   template<typename point_t>
   inline void
   nurbscurve<point_t>::print(std::ostream& os) const
   {
+    os << "num points: " << _points.size() << "\n";
+    os << "num_knots: " << _knots.size()<< "\n";
+    /*
     os << "nurbscurve: " << " \n" << "points : ";
     std::copy(_points.begin(), _points.end(), std::ostream_iterator<point_t>(os, ", "));
     os << "\n knots: ";
     std::copy(_knots.begin(), _knots.end(), std::ostream_iterator<typename point_t::value_type>(os, ", "));
     os << "\n";
+    */
   }
 
 
@@ -115,14 +121,13 @@ namespace math {
 
     for (size_t i = 0; i != _points.size(); ++i) {
       auto tmp = _points[i];
-
-      enumerator += N[i]  * tmp;
-      denominator += N[i] ;
+      tmp.weight(1.0);
+      enumerator += N[i] * _points[i].weight() * tmp;
+      denominator += N[i] * _points[i].weight();
     }
      
     return enumerator / denominator;
   }
-
 
   //////////////////////////////////////////////////////////////////////////////
   template<typename point_t>
@@ -133,7 +138,7 @@ namespace math {
       {
         data.reserve(rows);
         for (size_t r = 0; r != rows; ++r) {
-          data.emplace_back(std::vector<value_type>(cols, 0));
+          data.push_back(std::vector<value_type>(cols, 0));
         }
       }
 
@@ -141,7 +146,7 @@ namespace math {
         std::vector<value_type> result;
         result.reserve(data.size());
         for (auto i : data) {
-          result.emplace_back(i[r]);
+          result.push_back(i[r]);
         }
         return result;
       }
@@ -187,8 +192,6 @@ namespace math {
           }
         }
       }
-
-
     }
     return N(order()-1);
   }
@@ -272,7 +275,7 @@ namespace math {
     std::vector<value_type> tmp;
 
     for (typename std::vector<value_type>::iterator i = _knots.begin(); i != _knots.end(); ++i) {
-      tmp.emplace_back((*i - mn)/(mx - mn));
+      tmp.push_back((*i - mn)/(mx - mn));
     }
 
     std::swap(tmp, _knots);
