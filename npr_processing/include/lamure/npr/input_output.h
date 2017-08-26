@@ -29,12 +29,44 @@ namespace io {
          "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
          "\t-l: (optional) specify max number of slicing layers; vaule should be more than 5" << std::endl <<
          "\t--no_reduction: (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE" << std::endl <<
-         "\t--apply_nurbs_fitting: (optional); set flag for curve-fitting to TRUE" << std::endl <<
+         "\t--apply_nurbs_fitting: (optional) set flag for curve-fitting to TRUE" << std::endl <<
          "\t--verbose: (optional); set flag for print-outs to TRUE" << std::endl <<
-         "\t--use_dbscan: (optional); set DBSCAN as prefered clustering algorithm" << std::endl <<
          "\t--apply_alpha_shapes: (optional); set flag for alpha-shaped to TRUE" << std::endl <<
          "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
+         "\t--generate_spirals: (optional) set flag for spiral look to TRUE" << std::endl  <<
          std::endl;
+	}
+
+
+
+	inline bool check_user_input(char** argv, int argc) {
+		std::set<std::string> valid_options;
+		valid_options.insert("-f");
+		valid_options.insert("-t");
+		valid_options.insert("-d");
+		valid_options.insert("-l");
+		valid_options.insert("-v");
+		valid_options.insert("--apply_nurbs_fitting");
+		valid_options.insert("--apply_alpha_shapes");
+		valid_options.insert("--write_xyz_points");
+		valid_options.insert("--no_reduction");
+		valid_options.insert("--verbose");
+		valid_options.insert("--generate_spirals");
+
+		bool valid_input = true;
+		for (int i = 0; i < argc; ++i){
+			std::string current_option = argv[i];
+
+			if(current_option.find_first_of("-") == 0){
+				auto option_it = valid_options.find(current_option);
+				if(option_it == std::end(valid_options) ){
+					std::cout << "INVALID OPTION: " << current_option << "\n";
+					valid_input = false;
+				}
+			}
+		}
+
+		return valid_input; 
 	}
 
 	inline scm::math::mat4f read_in_transformation_file(std::string input_filename){

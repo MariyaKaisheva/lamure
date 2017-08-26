@@ -11,6 +11,15 @@ using namespace npr;
 int main(int argc, char** argv)
 {
     //input validation
+
+    bool valid_input = io::check_user_input(argv, argc);
+    if (!valid_input) {
+        std::cout << "Invalid user option! \n";
+
+        io::print_help_message(argv);
+        return 0;
+    }
+
     if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
         !io::cmd_option_exists(argv, argv+argc, "-f") || 
         !io::cmd_option_exists(argv, argv+argc, "-t")) {
