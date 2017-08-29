@@ -5,6 +5,8 @@
 #include <lamure/npr/sampling.h>
 #include <lamure/npr/alpha_shapes_wrapper.h>
 
+#include <chrono>
+
 namespace npr {
 namespace line_gen{
 
@@ -337,20 +339,30 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   float distance_threshold =  avg_min_distance * 2.0; 
 
   std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
-
   std::vector<line> line_data;
+  std::vector<uint32_t> cluster_sizes;
 
-   //std::vector<point> combined_sampled_clusters;
-   std::vector<uint32_t> cluster_sizes;
   //adaptive binning (distributes input surfels into descrite num. bins and projects them onto 2d plane)
+  std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
+  start_binning = std::chrono::system_clock::now();
   auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops);
-
+  end_binning = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds_binning = end_binning - start_binning;
 
     std::vector<nurbs_vec_t> guiding_nurbs_vec;
 
+    bool with_detailed_prints = false;  //TODO clean print logic
+
+    std::chrono::duration<double> total_elapsed_seconds_clustering(0.0);
+    std::chrono::duration<double> total_elapsed_seconds_AS_detection(0.0);
+
+    //for parallelisation later
+    std::vector< std::shared_ptr<std::vector<clusters_t>> > all_clusters_per_bin_vector_for_all_slices(bins_vec.size());
+
+
     for (auto const& current_bin_of_surfels : bins_vec){//each slicing layer   
 
-        std::vector<clusters_t> all_clusters_per_bin_vector;
+
 
         //compute average minimal distance between surfels in a bin
         float avg_min_distance_per_bin = utils::compute_avg_min_distance(current_bin_of_surfels.content_, num_cells_pro_dim, 1, num_cells_pro_dim);
@@ -363,25 +375,18 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     		float eps = avg_min_distance_per_bin * 20.0; // radis of search area
     		uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
-    		//generate clusters 
-    		all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels.content_, eps, minPoints);
+    		//generate clusters
+        std::chrono::time_point<std::chrono::system_clock> start_clustering, end_clustering;
+        start_clustering = std::chrono::system_clock::now();
+    		std::vector<clusters_t> all_clusters_per_bin_vector = clustering::create_DBSCAN_clusters(current_bin_of_surfels.content_, eps, minPoints);
+        end_clustering = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds_clustering_single_bin = end_clustering - start_clustering;
+        total_elapsed_seconds_clustering += elapsed_seconds_clustering_single_bin;
 
-        if(is_verbose) {
-    		  std::cout << "num clusters in current layer: " <<  all_clusters_per_bin_vector.size() << " \n";
+        if(is_verbose && with_detailed_prints) {
+    		  std::cout << "num clusters in current layer: " <<  all_clusters_per_bin_vector.size() << std::endl;
         }
 
-
-        //color clusters for visualisation purposes
-        /*for( auto& current_cluster : all_clusters_per_bin_vector ) {
-          uint32_t current_cluster_color_id = id_to_color_hash(current_cluster_id);
-          lamure::vec3b current_cluster_color = color_array[current_cluster_color_id];
-          for( auto& point_in_current_cluster : current_cluster) {
-            point_in_current_cluster.set_color(current_cluster_color);
-          }
-          ++current_cluster_id;
-        }*/
-
-       
         //create oulines for underlying shape of a cluster 
         if(all_clusters_per_bin_vector.size() > 0){
 
@@ -405,7 +410,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
             //for nurbs fitting:  num controll points should be at least as much as the order of the curve
             //smaller clusters should be ignored 
             if(cluster_size > degree + 1) { 
-              if(is_verbose) {
+              if(is_verbose && with_detailed_prints) {
                 std::cout << "Cluster size " << cluster_size << std::endl;
               }
         		
@@ -419,10 +424,15 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                 }
               	sampled_cluster = sampling::apply_distance_optimization_sampling (current_cluster, max_num_points); 
               }else if(apply_alpha_shapes){ //use alpha_shapes to select only points that make up the concave hull of a cluster
+                std::chrono::time_point<std::chrono::system_clock> start_alpha_shaping, end_alpha_shaping;
+                start_alpha_shaping = std::chrono::system_clock::now();
                 float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
                 std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
                 alpha::do_input_conversion(cgal_points, current_cluster);
                 auto cgal_line_segments = alpha::generate_alpha_shape(cgal_points);
+                end_alpha_shaping = std::chrono::system_clock::now();
+                std::chrono::duration<double> elapsed_seconds_AS_dection_per_cluster = end_alpha_shaping - start_alpha_shaping;
+                total_elapsed_seconds_AS_detection += elapsed_seconds_AS_dection_per_cluster;
                 sampled_cluster =  alpha::do_output_conversion(cgal_line_segments, cluster_y_coord);
               }
 
@@ -435,7 +445,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
               //recheck cluster size sufficiency after the potential reduction during alpha-shapes detection  
               if( ordered_cluster.size() <= degree + 1 ) {
-                  if(is_verbose) {
+                  if(is_verbose && with_detailed_prints) {
                     std::cout << "cluster with " << ordered_cluster.size() << " points was skipped \n";
                   }
                   continue;
@@ -475,21 +485,26 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
         }
         else{
-          if(is_verbose) {
+          if(is_verbose && with_detailed_prints) {
             std::cout << "no clusters in the current layer \n";
           }
         }
     }
 
+    if(is_verbose){
+      std::cout << "\t binning: " << elapsed_seconds_binning.count() << "s\n";
+      std::cout << "\t clustering: " << total_elapsed_seconds_clustering.count() << "s\n";
+      std::cout << "\t detecting Alpha-shapes: " << total_elapsed_seconds_AS_detection.count() << "s\n";
+      //std::cout << "\t nurbs fitting: " <<  << "s\n";
+    }
+
+
     if(use_nurbs && spiral_look){
       std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_distance);
       bool adaptive = true; 
       for(auto& current_spiral_section : final_curves_vec){
-        std::cout << "Before evaluate_curve!!! \n";
         std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
-        std::cout << "After evaluate_curve!!! \n";
         line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
-
       }
     }
 

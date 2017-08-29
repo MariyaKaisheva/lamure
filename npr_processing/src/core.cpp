@@ -1,5 +1,7 @@
 #include <lamure/npr/core.h>
 
+#include <chrono>
+
 namespace npr {
 namespace core {
 
@@ -30,10 +32,12 @@ void
       	}
 
         if(is_verbose) {
-            std::cout << "working with surfels at depth " << depth << "; Max depth for this model is "<<  bvh->get_depth() <<std::endl;
+            std::cout << "------------------------------------------------------------------------------\n" << std::endl;
+            std::cout << "Working with surfels at depth " << depth << "; Max depth for this model is "<<  bvh->get_depth() 
+                      << std::endl <<std::endl;
         }
+
         lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
-     
 
         auto total_num_surfels = num_leafs*bvh->get_primitives_per_node();
         std::vector<xyzall_surfel_t> surfels_vector(total_num_surfels);
@@ -75,12 +79,23 @@ void
 
 
         //create line representation of original input data
-        auto line_data = line_gen::generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes, spiral_look);
+        std::chrono::time_point<std::chrono::system_clock> start_generating_lines, end_generating_lines;
+        start_generating_lines = std::chrono::system_clock::now();
+        auto line_data = line_gen::generate_lines(surfels_vector, max_number_line_loops, use_nurbs, apply_alpha_shapes, spiral_look, is_verbose);
+        end_generating_lines = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds_generating_lines = end_generating_lines - start_generating_lines;
         if(is_verbose) {
             std::cout << "Num generated lines: " << line_data.size() << "\n";
+            std::cout << "------  Time LOG:  ------" << std::endl;
+            std::cout << "\t generating lines: " << elapsed_seconds_generating_lines.count() << "s\n";
         }
-        //transform data again to return to the original model orientation 
+
+        //transform data again to return to the original model orientation
+        std::chrono::time_point<std::chrono::system_clock> start_inverse_rotation, end_inverse_rotation;
+        start_inverse_rotation = std::chrono::system_clock::now();
         utils::transform(line_data, user_defined_rot_mat);
+        end_inverse_rotation = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds_inverse_rotation = end_inverse_rotation - start_inverse_rotation;
 
         #if 0 //remove potential oulier line segments; 
         std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
@@ -94,15 +109,23 @@ void
 
         std::string obj_filename = output_base_name + ".obj";
         std::string xyz_all_filename = output_base_name + ".xyz_all";
-       
 
+
+        std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
+        start_writing_output = std::chrono::system_clock::now();
         if(write_obj_file){
           io::write_output(write_obj_file, obj_filename, line_data, bvh);
         }else{
           io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
         }
+        end_writing_output = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds_writing_output = end_writing_output - start_writing_output;
         
         if(is_verbose) {
+
+            std::cout << "\t rotating model to original position: " << elapsed_seconds_inverse_rotation.count() << "s\n";
+            std::cout << "\t writing output: " << elapsed_seconds_writing_output.count() << "s\n";
+            std::cout << "-----------------------------------\n" << std::endl;
             std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
             std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;
             std::cout << "Num slicing layers: " << max_number_line_loops << std::endl;
