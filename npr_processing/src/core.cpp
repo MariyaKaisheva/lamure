@@ -87,7 +87,7 @@ void
         if(is_verbose) {
             std::cout << "Num generated lines: " << line_data.size() << "\n";
             std::cout << "------  Time LOG:  ------" << std::endl;
-            std::cout << "\t generating lines: " << elapsed_seconds_generating_lines.count() << "s\n";
+            //std::cout << "\t generating lines: " << elapsed_seconds_generating_lines.count() << "s\n";
         }
 
         //transform data again to return to the original model orientation
