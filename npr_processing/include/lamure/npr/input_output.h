@@ -1,6 +1,8 @@
 #ifndef INPUT_OUTPUT_H
 #define INPUT_OUTPUT_H
 
+#include <map>
+
 #include <lamure/ren/bvh.h>
 
 #include "utils.h"
@@ -21,37 +23,41 @@ namespace io {
 	    return std::find(begin, end, option) != end;
 	}
 
-	inline void print_help_message(char** argv){
-		 std::cout << "Usage: " << argv[0] << " -f <input_file>" << std::endl <<
-         "Parameters: " << std::endl <<
-         "\t-f: (required) specify .bvh input file" << std::endl <<
-         "\t-t: (required) specify .txt input file that contains desired transformation" << std::endl <<
-         "\t-d: (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level" << std::endl <<
-         "\t-l: (optional) specify max number of slicing layers; vaule should be more than 5" << std::endl <<
-         "\t--no_reduction: (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE" << std::endl <<
-         "\t--apply_nurbs_fitting: (optional) set flag for curve-fitting to TRUE" << std::endl <<
-         "\t--verbose: (optional); set flag for print-outs to TRUE" << std::endl <<
-         "\t--apply_alpha_shapes: (optional); set flag for alpha-shaped to TRUE" << std::endl <<
-         "\t--write_xyz_points: (optional) writes an xyz_point_cloud instead of a *.obj containing line data" << std::endl  <<
-         "\t--generate_spirals: (optional) set flag for spiral look to TRUE" << std::endl  <<
-         std::endl;
+	inline void prepare_options_with_descriptions(std::map<std::string, std::string>& options_with_descriptions_vec){
+
+		options_with_descriptions_vec.emplace("-f", ": (REQUIRED) specify .bvh input file");
+		options_with_descriptions_vec.emplace("-t", ": (optional) specify .rot input file that contains rotation for slicing plane");
+		options_with_descriptions_vec.emplace("-d", ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");
+		options_with_descriptions_vec.emplace("-l", ": (optional) specify max number of slicing layers; vaule should be more than 5");
+		options_with_descriptions_vec.emplace("-v", ": (optional); set flag for print-outs to TRUE");
+		options_with_descriptions_vec.emplace("--no_reduction", ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
+		options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
+		options_with_descriptions_vec.emplace("--verbose", ": (optional); set flag for print-outs to TRUE");
+		options_with_descriptions_vec.emplace("--apply_alpha_shapes", ": (optional) set flag for alpha-shaped to TRUE");
+		options_with_descriptions_vec.emplace("--write_xyz_points", ": (optional) writes an xyz_point_cloud instead of a *.obj containing line data");
+		options_with_descriptions_vec.emplace("--generate_spirals", ": (optional) set flag for spiral look to TRUE");
 	}
 
 
+	inline void print_help_message(char** argv){
+		std::map<std::string, std::string> options_with_descriptions; 
+		prepare_options_with_descriptions(options_with_descriptions);
+		std::cout << "Usage of " << argv[0] << std::endl <<
+		"Parameters: " << std::endl; 
+
+		for(auto const& option_description_pair : options_with_descriptions){
+			std::cout << "\t" << option_description_pair.first
+					  <<  option_description_pair.second
+					  << std::endl;
+		}
+
+		std::cout << std::endl;	
+	}
+
 
 	inline bool check_user_input(char** argv, int argc) {
-		std::set<std::string> valid_options;
-		valid_options.insert("-f");
-		valid_options.insert("-t");
-		valid_options.insert("-d");
-		valid_options.insert("-l");
-		valid_options.insert("-v");
-		valid_options.insert("--apply_nurbs_fitting");
-		valid_options.insert("--apply_alpha_shapes");
-		valid_options.insert("--write_xyz_points");
-		valid_options.insert("--no_reduction");
-		valid_options.insert("--verbose");
-		valid_options.insert("--generate_spirals");
+		std::map<std::string, std::string> valid_options; 
+		prepare_options_with_descriptions(valid_options);
 
 		bool valid_input = true;
 		for (int i = 0; i < argc; ++i){

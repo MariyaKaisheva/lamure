@@ -157,20 +157,18 @@ std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d & nurbs_curve, bool
     working_stack.push(j_0);
  
 
-    float error_threshold = 0.03;
+    float error_threshold = 0.001;
     while(!working_stack.empty()){
       //std::cout << "still in the loop! stack size: " << working_stack.size() << "\n";
       auto current_job = working_stack.top();
       working_stack.pop();
 
-      //std::cout << "BEFORE EVALUATE\n";
       auto start_point = nurbs_curve.evaluate(current_job.start_t_);
       auto end_point = nurbs_curve.evaluate(current_job.end_t_);
       float middle_t = (current_job.start_t_ + current_job.end_t_) / 2.0;
       auto middle_point = nurbs_curve.evaluate(middle_t);
 
       //nurbs_curve.print(std::cout);
-      //std::cout << "AFTER EVALUATE\n";
       auto & approx_middle_point = current_job.approximated_point_;
       auto start_coord = lamure::vec3f(middle_point[0], middle_point[1], middle_point[2]);
       auto end_coord = lamure::vec3f(approx_middle_point[0], approx_middle_point[1], approx_middle_point[2]);
@@ -362,7 +360,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
         }
 
         //set parameters for DBSCAN
-    		float eps = avg_min_distance_per_bin * 8.0; // radis of search area
+    		float eps = avg_min_distance_per_bin * 20.0; // radis of search area
     		uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
     		//generate clusters 

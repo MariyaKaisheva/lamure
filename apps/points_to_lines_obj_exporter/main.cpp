@@ -11,31 +11,36 @@ using namespace npr;
 int main(int argc, char** argv)
 {
     //input validation
-
     bool valid_input = io::check_user_input(argv, argc);
-    if (!valid_input) {
-        std::cout << "Invalid user option! \n";
+    if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
+        !io::cmd_option_exists(argv, argv+argc, "-f") || !valid_input) {
 
         io::print_help_message(argv);
         return 0;
-    }
-
-    if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
-        !io::cmd_option_exists(argv, argv+argc, "-f") || 
-        !io::cmd_option_exists(argv, argv+argc, "-t")) {
-        io::print_help_message(argv);
-      return 0;
     }
 
     //get input for point cloud model and corresponding rotaion file
-    std::string rot_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
     std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));
     std::string ext_bvh = bvh_filename.substr(bvh_filename.size()-3);
-    std::string ext_rot = rot_filename.substr(rot_filename.size()-3);
-    if ((ext_bvh.compare("bvh") != 0) && (ext_rot.compare("rot") != 0)){
+    if ((ext_bvh.compare("bvh") != 0) ){ //validate input paramenter
         std::cout << "please specify a .bvh file as input" << std::endl;
         return 0;
     }
+
+    //get input for rotaion file (it must contain 4 values that describe the ange and axis of rotation of slicing plane)
+    //if no such input provided, use defaut plane orientation 
+    scm::math::mat4f user_defined_rot_mat = scm::math::make_rotation(0.0f, 0.0f, 0.0f, 1.0f);
+    std::string rot_filename = "";
+    if(io::cmd_option_exists(argv, argv+argc, "-t")){
+        rot_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
+        std::string ext_rot = rot_filename.substr(rot_filename.size()-3);
+        if(ext_rot.compare("rot") != 0){ //validate input paramenter
+            std::cout << "Please specify correct .rot file after -t " << std::endl;
+            return 0;
+        }
+        user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
+    }
+
 
     //check user preferences
     int32_t depth = -1;
@@ -44,7 +49,7 @@ int main(int argc, char** argv)
     }
 
     bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
-    uint32_t max_number_line_loops = 85;
+    uint32_t max_number_line_loops = 95;
 
     bool is_verbose_option_1 = io::cmd_option_exists(argv, argv + argc, "--verbose");
     bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
@@ -59,16 +64,10 @@ int main(int argc, char** argv)
     bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
     bool apply_alpha_shapes = !io::cmd_option_exists(argv, argv + argc, "--no_alpha_shapes");
     bool spiral_look = io::cmd_option_exists(argv, argv + argc, "--generate_spirals");
-    auto user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
-
-
+    
     std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
     std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
 
-    //std::string rot_substring_without_path = rot_filename.substr(rot_filename.find_last_of("/\\") + 1); 
-    //std::string rot_substring_without_path_and_extension = rot_substring_without_path.substr(0, rot_substring_without_path.size() - 4 );
-
-    //std::string rot_substring = rot_filename.substr(0, rot_filename.size()-4);
     scm::math::quat<double> output_quat;
     output_quat = scm::math::quat<double>::from_matrix(scm::math::mat4d(user_defined_rot_mat));
     double angle; 
