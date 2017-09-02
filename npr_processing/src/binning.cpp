@@ -13,7 +13,9 @@
 namespace npr {
 namespace binning {
 bool 
-  evaluate_similarity(bin const& bin_A, bin const& bin_B, bool merge_binning){
+  evaluate_similarity(bin const& bin_A, 
+                      bin const& bin_B,
+                      bool merge_binning){
 
  	//coefficents used by computation of Jaccard index
  	uint m_11 = 0; //both binary values = 1
@@ -45,7 +47,7 @@ bool
  	}
 
 
-    float splitting_depth_dependent_sensitivity = 0.3;
+    float splitting_depth_dependent_sensitivity = 0.15;
 
     if(!merge_binning){
         float base_sensitivity = 0.38;
@@ -65,8 +67,20 @@ bool
  	}
 }
 
+//function returns TRUE if distance between 2 bins is beyond desires threshold
+bool evaluate_proximity(bin const& bin_A, 
+                        bin const& bin_B,
+                        float max_distance){
+
+    auto pos_A = bin_A.pos_along_slicing_axis_;
+    auto pos_B = bin_B.pos_along_slicing_axis_;    
+    return std::fabs(pos_A - pos_B) > max_distance; 
+}
+
 std::vector<bin> 
- generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, float const initial_bound_value, uint& max_num_layers){
+ generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, 
+                   float initial_bound_value, uint& max_num_layers,
+                   float max_distance_between_two_neighbouring_bins){
  	
  	std::vector<bin> bins;
  
@@ -135,8 +149,8 @@ std::vector<bin>
 
                     //std::cout << "Evaluating top bin: " << top_id << " against bottom bin: " << bottom_id << "\n";
 
-                    bool are_bins_similar = evaluate_similarity(top_bin, bottom_bin, false);
-                    if (!are_bins_similar){
+                    bool bins_are_similar = evaluate_similarity(top_bin, bottom_bin, false);
+                    if (!bins_are_similar){
 
 
                         //create && insert new bin
@@ -196,9 +210,12 @@ std::vector<bin>
 
                 std::advance(it2, 1);
                 bins.push_back(*it1);
-                while(it2 != working_list_of_bins.end()){
-                    bool are_bins_similar = evaluate_similarity(*it1, *it2, true);
-                    if(are_bins_similar){
+                while(it2 != --working_list_of_bins.end()){
+                    bool bins_are_similar = evaluate_similarity(*it1, *it2, true);
+                    bool distance_is_beyond_max_theshold = evaluate_proximity(*it1, *it2, max_distance_between_two_neighbouring_bins); 
+                    
+                    //keep data if bins are too dissimilar, or if distance between then is NOT too large
+                    if(bins_are_similar && (!distance_is_beyond_max_theshold)){
                         it2 = working_list_of_bins.erase(it2);
 
                     }
@@ -206,8 +223,11 @@ std::vector<bin>
                         ++it1;
                         ++it2;
                         bins.push_back(*it1);
+                        
                     }
                 }
+
+                bins.push_back(*it2);
 
 
             #endif

@@ -4,6 +4,8 @@
 namespace npr {
 namespace clustering {
 
+uint32_t const degree = 3;
+
 std::pair<float, point>
 find_nearest_neighbour (point const& start_point, std::vector<point> const& all_points) {
   float current_min = std::numeric_limits<float>::max();
@@ -112,9 +114,11 @@ create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t 
       else{
         clusters_t current_cluster;
         expand_cluster(current_point, neighbourhood, all_points_per_layer, current_cluster, eps, min_points);
-
-        clusters_vec.push_back(current_cluster);
-
+        if(current_cluster.size() > degree + 1){
+          clusters_vec.push_back(current_cluster);
+        }/*else{
+          std::cout << "!!!Skipping cluster with too few points \n";
+        }*/
       }
     }
   }

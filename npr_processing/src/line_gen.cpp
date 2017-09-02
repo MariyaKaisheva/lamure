@@ -330,7 +330,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   uint32_t last_el = input_data.size() - 1;
   auto model_height = std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
   float max_distance = model_height / max_num_line_loops;
-
+  float const min_distance = 0.03;
+  max_num_line_loops = std::floor(model_height / min_distance);
 
   //inital global computation for whole model 
   //with size to holding appyimately 1000 data points (assuming uniform point distribution)
@@ -345,7 +346,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   //adaptive binning (distributes input surfels into descrite num. bins and projects them onto 2d plane)
   std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
   start_binning = std::chrono::system_clock::now();
-  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops);
+  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops, 0.5);
   end_binning = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_binning = end_binning - start_binning;
 
@@ -503,7 +504,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
         }
 
         //set parameters for DBSCAN
-        float eps = avg_min_distance_per_bin * 20.0; // radis of search area
+        float eps = avg_min_distance_per_bin * 10.0; // radis of search area
         uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
         //generate clusters
@@ -522,7 +523,16 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     std::chrono::duration<double> elapsed_seconds_clustering_single_bin = end_clustering - start_clustering;
     total_elapsed_seconds_clustering += elapsed_seconds_clustering_single_bin;
 
-    auto empty_element_remove_lambda = [](std::shared_ptr<std::vector<clusters_t>> vector_element){return vector_element->empty();};
+    auto empty_element_remove_lambda = [](std::shared_ptr<std::vector<clusters_t>> vector_element){
+      if(nullptr != vector_element) {
+        return vector_element->empty();
+      } else {
+        return true;     
+      }
+    };
+
+    
+
     all_clusters_per_bin_vector_for_all_slices.erase(std::remove_if(all_clusters_per_bin_vector_for_all_slices.begin(), 
                                                                     all_clusters_per_bin_vector_for_all_slices.end(),
                                                                     empty_element_remove_lambda),
@@ -556,17 +566,16 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
         float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
         uint32_t cluster_size = current_cluster.size();
+
         std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
         alpha::do_input_conversion(cgal_points, current_cluster);
         auto cgal_line_segments = alpha::generate_alpha_shape(cgal_points);
         std::shared_ptr<std::vector<point>> ordered_cluster =  std::make_shared<std::vector<point>>(alpha::do_output_conversion(cgal_line_segments, cluster_y_coord));
 
 
-
-
         //check if the cleaned and ordereed cluster still containes enough elemets for be later used for nurbs fitting 
         if( ordered_cluster->size() <= degree + 1 ) {
-            if(is_verbose && with_detailed_prints) {
+            if(is_verbose /*&& with_detailed_prints*/) {
               std::cout << "cluster with " << ordered_cluster->size() << " points was skipped \n";
             }
             continue;
@@ -620,6 +629,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       }
     }
 
+
+
     if(is_verbose){
       std::cout << "\t binning: " << elapsed_seconds_binning.count() << "s\n";
       std::cout << "\t clustering: " << total_elapsed_seconds_clustering.count() << "s\n";
@@ -628,14 +639,14 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     }
 
 
-    if(use_nurbs && spiral_look){
+    /*if(use_nurbs && spiral_look){
       std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_distance);
       bool adaptive = true; 
       for(auto& current_spiral_section : final_curves_vec){
         std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
         line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
       }
-    }
+    }*/
 
     return line_data;
 }
