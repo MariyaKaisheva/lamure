@@ -73,7 +73,7 @@ namespace utils {
 		    float length;
 		};
 
-		struct bounding_rect{
+		struct bounding_rect{ //TODO substitute by scm::gl::boxf
 			float min_x;
 			float max_x;
 			float min_y;
@@ -361,6 +361,9 @@ namespace utils {
 		}
 
 		void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat);
+
+		std::pair<float, float> estimate_binning_densities(std::string const& bvh_filename);
+
 } //utils
 } //npr
 

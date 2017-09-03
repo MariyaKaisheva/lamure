@@ -95,7 +95,8 @@ namespace binning {
 	std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, 
 									   float const inital_bin_half_height, 
 									   uint& max_num_loops,
-									   float max_distance_between_two_neighbouring_bins = -1.0); //TODO remove defaut value after split binning is removed
+									   float max_distance_between_two_neighbouring_bins = -1.0,
+									   bool verbose = false); //TODO remove defaut value after split binning is removed
 } //namespace binning
 } //namespace npr
 

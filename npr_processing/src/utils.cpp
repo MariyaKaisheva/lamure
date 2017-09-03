@@ -1,5 +1,9 @@
 #include <lamure/npr/utils.h>
 
+#include <lamure/ren/bvh.h>
+
+#include <memory>
+
 namespace npr {
 namespace utils {
 	float compute_avg_min_distance(std::vector<xyzall_surfel_t> const& input_data, uint32_t const num_cells_pro_dim_x, uint32_t const num_cells_pro_dim_y, uint32_t const num_cells_pro_dim_z) {
@@ -77,6 +81,28 @@ namespace utils {
 			line.end.pos_coordinates_[1] = transformed_end_y;
 			line.end.pos_coordinates_[2] = transformed_end_z;
 		}
+	}
+
+	std::pair<float, float> estimate_binning_densities(std::string const& bvh_filename){
+
+		std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
+		scm::math::vec3f upper_bound_coord = bvh->get_bounding_box(0).max_vertex();
+		scm::math::vec3f lower_bound_coord = bvh->get_bounding_box(0).min_vertex();
+
+		float bb_dims[3] {-1.0f, -1.0f, -1.0f};
+		float max_length(0.0f);
+		float min_length(std::numeric_limits<float>::max());
+
+		for (int dim_idx = 0; dim_idx < 3; ++dim_idx) {
+			bb_dims[dim_idx] = std::fabs(upper_bound_coord[dim_idx] - lower_bound_coord[dim_idx]);
+			max_length = std::max(max_length, bb_dims[dim_idx]);
+			min_length = std::min(min_length, bb_dims[dim_idx]);
+		}
+
+		float min_distance_between_two_bins = 0.3 * max_length; 
+		float max_distance_between_two_bins = 0.1 * min_length;
+
+		return std::make_pair(min_distance_between_two_bins, max_distance_between_two_bins);
 	}
 
 } //namespace utils

@@ -80,7 +80,8 @@ bool evaluate_proximity(bin const& bin_A,
 std::vector<bin> 
  generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, 
                    float initial_bound_value, uint& max_num_layers,
-                   float max_distance_between_two_neighbouring_bins){
+                   float max_distance_between_two_neighbouring_bins,
+                   bool verbose){
  	
  	std::vector<bin> bins;
  
@@ -233,8 +234,12 @@ std::vector<bin>
             #endif
         }
 
-    max_num_layers =  bins.size();
-    //std::cout << "Finally returning " << bins.size() << " bins\n";
+    
+    if(verbose){
+        std::cout << "Starting with " << max_num_layers << " slicing layers, ";
+        std::cout << "and finally returning " << bins.size() << " of them after binning\n";
+    }
+    
  	return bins;
 }
 

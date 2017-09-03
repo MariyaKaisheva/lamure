@@ -49,7 +49,6 @@ int main(int argc, char** argv)
     }
 
     bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
-    uint32_t max_number_line_loops = 95;
 
     bool is_verbose_option_1 = io::cmd_option_exists(argv, argv + argc, "--verbose");
     bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
@@ -57,9 +56,19 @@ int main(int argc, char** argv)
 
     bool without_lod_adjustment = io::cmd_option_exists(argv, argv + argc, "--no_reduction");
 
-    if(io::cmd_option_exists(argv, argv+argc, "-l")){
-     max_number_line_loops = atoi(io::get_cmd_option(argv, argv+argc, "-l")); //user input
+    //TODO: make these parameters model dependent
+    float min_distance = 0.2;
+    float max_distance = 1.0;
+
+    if(io::cmd_option_exists(argv, argv+argc, "--max")){
+     max_distance = atoi(io::get_cmd_option(argv, argv+argc, "--max")); //user input
     }
+
+    if(io::cmd_option_exists(argv, argv+argc, "--min")){
+     min_distance = atoi(io::get_cmd_option(argv, argv+argc, "--min")); //user input
+    }
+
+
 
     bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
     bool apply_alpha_shapes = !io::cmd_option_exists(argv, argv + argc, "--no_alpha_shapes");
@@ -75,13 +84,13 @@ int main(int argc, char** argv)
     output_quat.retrieve_axis_angle(angle, axis);
 
     std::string output_base_name = bvh_filename_without_path_and_extension
-                                         + "_d" + std::to_string(depth)
+                                         + "_d" + std::to_string(depth) //TODO fix name for leaf level
                                          + "_angle_"  + std::to_string(angle);
 
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
-                            write_obj_file, use_nurbs,
-                            apply_alpha_shapes, spiral_look,
-                            output_base_name, max_number_line_loops, 
+                            write_obj_file, spiral_look,
+                            output_base_name, min_distance, max_distance, 
+                            use_nurbs, apply_alpha_shapes, 
                             without_lod_adjustment, is_verbose);
 
     return 0;

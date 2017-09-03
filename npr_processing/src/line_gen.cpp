@@ -314,9 +314,9 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
 
 std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, 
-               uint32_t& max_num_line_loops, bool use_nurbs, 
-               bool apply_alpha_shapes, bool spiral_look,
-               bool is_verbose){
+               float min_distance, float max_distance,
+               bool use_nurbs, bool apply_alpha_shapes,
+               bool spiral_look, bool is_verbose){
 
 	uint32_t current_cluster_id = 0;
 	uint8_t degree = 3; //TODO consider changeing this variable to user-defined one
@@ -329,9 +329,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::sort(input_data.begin(), input_data.end(), comparator);
   uint32_t last_el = input_data.size() - 1;
   auto model_height = std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
-  float max_distance = model_height / max_num_line_loops;
-  float const min_distance = 0.03;
-  max_num_line_loops = std::floor(model_height / min_distance);
+ 
+  uint32_t max_num_line_loops = std::floor(model_height / min_distance);
 
   //inital global computation for whole model 
   //with size to holding appyimately 1000 data points (assuming uniform point distribution)
@@ -346,7 +345,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   //adaptive binning (distributes input surfels into descrite num. bins and projects them onto 2d plane)
   std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
   start_binning = std::chrono::system_clock::now();
-  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops, 0.5);
+  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops, max_distance, is_verbose);
   end_binning = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_binning = end_binning - start_binning;
 
@@ -638,9 +637,9 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       std::cout << "\t nurbs fitting: " << elapsed_seconds_nurbs_fitting.count() << "s\n";
     }
 
-
-    /*if(use_nurbs && spiral_look){
-      std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_distance);
+    /*float max_winding_distance = max_distance / 3.0; 
+    if(use_nurbs && spiral_look){
+      std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);
       bool adaptive = true; 
       for(auto& current_spiral_section : final_curves_vec){
         std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);

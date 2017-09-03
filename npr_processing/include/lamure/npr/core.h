@@ -36,11 +36,12 @@ namespace core {
                             std::string const& bvh_filename, 
                             int32_t depth, 
                             bool write_obj_file,
-                            bool use_nurbs,
-                            bool apply_alpha_shapes,
                             bool spiral_look,
                             std::string output_base_name,
-                            uint32_t max_number_line_loops,
+                            float min_distance,
+                            float max_distance,
+                            bool use_nurbs = true,
+                            bool apply_alpha_shapes = true,
                             bool with_lod_adjustment = true,
                             bool is_verbose = false);
 } //namespace core
