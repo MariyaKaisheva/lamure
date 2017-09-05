@@ -68,6 +68,10 @@ int main(int argc, char** argv)
      min_distance = atoi(io::get_cmd_option(argv, argv+argc, "--min")); //user input
     }
 
+    int32_t output_stage = 100;
+    if(io::cmd_option_exists(argv, argv+argc, "-s")){
+        output_stage = atoi(io::get_cmd_option(argv, argv+argc, "-s"));
+    }
 
 
     bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
@@ -83,13 +87,17 @@ int main(int argc, char** argv)
     scm::math::vec3d axis; 
     output_quat.retrieve_axis_angle(angle, axis);
 
+
+    std::string output_stage_name = io::get_stage_string(output_stage);
     std::string output_base_name = bvh_filename_without_path_and_extension
                                          + "_d" + std::to_string(depth) //TODO fix name for leaf level
-                                         + "_angle_"  + std::to_string(angle);
+                                         + "_angle_"  + std::to_string(angle)
+                                         + "_stage_" + output_stage_name;
 
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
                             write_obj_file, spiral_look,
-                            output_base_name, min_distance, max_distance, 
+                            output_base_name, min_distance, max_distance,
+                            output_stage, 
                             use_nurbs, apply_alpha_shapes, 
                             without_lod_adjustment, is_verbose);
 

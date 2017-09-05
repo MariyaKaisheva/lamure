@@ -40,6 +40,7 @@ namespace core {
                             std::string output_base_name,
                             float min_distance,
                             float max_distance,
+                            int32_t output_stage = 100,
                             bool use_nurbs = true,
                             bool apply_alpha_shapes = true,
                             bool with_lod_adjustment = true,

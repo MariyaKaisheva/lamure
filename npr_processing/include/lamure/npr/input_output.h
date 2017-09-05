@@ -29,6 +29,7 @@ namespace io {
 		options_with_descriptions_vec.emplace("-t", ": (optional) specify .rot input file that contains rotation for slicing plane");
 		options_with_descriptions_vec.emplace("-d", ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");
 		options_with_descriptions_vec.emplace("-l", ": (optional) specify max number of slicing layers; vaule should be more than 5");
+		options_with_descriptions_vec.emplace("-s", ": (optional) specify output stage");
 		options_with_descriptions_vec.emplace("-v", ": (optional); set flag for print-outs to TRUE");
 		options_with_descriptions_vec.emplace("--no_reduction", ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
 		options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
@@ -74,6 +75,40 @@ namespace io {
 
 		return valid_input; 
 	}
+
+	inline std::string get_stage_string(int32_t stage_num){
+		std::string stage_name = "";
+
+		switch (stage_num){
+			case 0 :
+				stage_name = "BINNING";
+				break; 
+
+			case 1 :
+				stage_name = "CLUSTERING";
+				break;
+
+			case 2 :
+				stage_name = "ALPHA_SHAPES";
+				break;
+
+			case 3 :
+				stage_name = "NURBS";
+				break;
+
+			case 4 :
+				stage_name = "SPIRALS";
+				break;
+
+			default :
+				stage_name = "FINAL";
+				break;
+
+		}
+
+		return stage_name;
+	}
+
 
 	inline scm::math::mat4f read_in_transformation_file(std::string input_filename){
 		std::ifstream in_stream(input_filename);
