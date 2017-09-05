@@ -348,7 +348,8 @@ void prepare_clusters (std::vector<binning::bin> & bins_vec,
 }
 
 void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
-                                              std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
+                                              //std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
+                                              std::vector< std::shared_ptr<std::vector<clusters_t>> >  & all_alpha_shapes_for_all_bins,
                                               uint32_t degree,
                                               bool color,
                                               bool is_verbose){
@@ -358,7 +359,7 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
   #pragma omp parallel for
   for(uint32_t bin_vec_index = 0; bin_vec_index < all_clusters_per_bin_vector_for_all_slices.size(); ++bin_vec_index){
     auto const all_clusters_per_bin_vector = all_clusters_per_bin_vector_for_all_slices[bin_vec_index]; 
-    std::vector< std::shared_ptr<std::vector<point> > > alpha_shapes_in_current_bin;
+    std::shared_ptr<std::vector<clusters_t>> alpha_shapes_in_current_bin = std::make_shared<std::vector<clusters_t>>();
     for(auto& current_cluster : *all_clusters_per_bin_vector){
       //color clusters for visualisation purposes
       if(color) {
@@ -378,22 +379,22 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
       std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
       alpha::do_input_conversion(cgal_points, current_cluster);
       auto cgal_line_segments = alpha::generate_alpha_shape(cgal_points);
-      std::shared_ptr<std::vector<point>> ordered_cluster =  std::make_shared<std::vector<point>>(alpha::do_output_conversion(cgal_line_segments, cluster_y_coord));
+      std::vector<point> ordered_cluster = alpha::do_output_conversion(cgal_line_segments, cluster_y_coord);
 
 
       //check if the cleaned and ordereed cluster still containes enough elemets for be later used for nurbs fitting 
-      if( ordered_cluster->size() <= degree + 1 ) {
+      if( ordered_cluster.size() <= degree + 1 ) {
           if(is_verbose /*&& with_detailed_prints*/) {
-            std::cout << "cluster with " << ordered_cluster->size() << " points was skipped \n";
+            std::cout << "cluster with " << ordered_cluster.size() << " points was skipped \n";
           }
           continue;
       }
 
       //order-preserving shift of vector elemets (i.e. cluster points) 
       //=> first element has similar position for each cluster to facilitate smooth thansition between clusters of differnt bin-layers
-      rotate(*ordered_cluster);
+      rotate(ordered_cluster);
 
-      alpha_shapes_in_current_bin.push_back(ordered_cluster);
+      alpha_shapes_in_current_bin->push_back(ordered_cluster);
     }
 
     all_alpha_shapes_for_all_bins[bin_vec_index] = alpha_shapes_in_current_bin;
@@ -477,14 +478,12 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                                                     all_clusters_per_bin_vector_for_all_bins.end());
 
     if(write_intermediate_result_out){
-      
-      io::write_intermediate_result_out(/*output_stage,*/
-                                      output_base_name + "_BINNING.pob",
-                                      avg_min_distance, 
-                                      all_clusters_per_bin_vector_for_all_bins);
+      bool use_binning_coloring = true;
+      io::write_intermediate_result_out(output_base_name + "_BINNING.pob",
+                                        avg_min_distance, 
+                                        all_clusters_per_bin_vector_for_all_bins, 
+                                        use_binning_coloring);
       std::cout << "BINNING\n";
-      
-      //return line_data;
     }
 
 
@@ -506,14 +505,12 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       ++bin_id;
     }
 
-    if(write_intermediate_result_out){
-      
-      io::write_intermediate_result_out(/*output_stage,*/
-                                      output_base_name + "_CLUSTERING.pob",
-                                                                avg_min_distance, 
-                                      all_clusters_per_bin_vector_for_all_bins);
+    if(write_intermediate_result_out){      
+      io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
+                                        avg_min_distance, 
+                                        all_clusters_per_bin_vector_for_all_bins);
       std::cout << "CLUSTERING\n";
-      //return line_data;
+
     }
 
 
@@ -523,7 +520,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     std::chrono::time_point<std::chrono::system_clock> start_alpha_shaping, end_alpha_shaping;
     start_alpha_shaping = std::chrono::system_clock::now();//start timing
 
-    std::vector<std::vector< std::shared_ptr<std::vector<point> > > > all_alpha_shapes_for_all_bins(all_clusters_per_bin_vector_for_all_bins.size());
+    std::vector< std::shared_ptr<std::vector<clusters_t>> >  all_alpha_shapes_for_all_bins(all_clusters_per_bin_vector_for_all_bins.size());
     clean_clusters_via_alpha_shape_detection(all_clusters_per_bin_vector_for_all_bins,
                                              all_alpha_shapes_for_all_bins,
                                              degree,
@@ -531,10 +528,11 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                                              is_verbose);
 
     if(write_intermediate_result_out){
+      io::write_intermediate_result_out(output_base_name + "_ALPHA_SHAPES.pob",
+                                  avg_min_distance, 
+                                  all_alpha_shapes_for_all_bins);
 
       std::cout << "ALPHA_SHAPES\n";
-      
-      //return line_data;
     }
 
     end_alpha_shaping = std::chrono::system_clock::now();//end timing
@@ -549,11 +547,11 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
     #pragma omp parallel for
     for(uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size(); ++bin_index){
-      std::vector<std::shared_ptr<std::vector<point>>>& all_alpha_shapes_in_current_bin_vec = all_alpha_shapes_for_all_bins[bin_index];
+     std::shared_ptr<std::vector<clusters_t>>& all_alpha_shapes_in_current_bin_vec = all_alpha_shapes_for_all_bins.at(bin_index);
 
       std::vector<std::vector<line>> lines_per_alpha_shape_in_current_bin;
-      for(std::shared_ptr<std::vector<point> >& current_alpha_shaped_cluster : (all_alpha_shapes_in_current_bin_vec) ){
-        auto cluster_approximating_curve = fit_curve(*current_alpha_shaped_cluster, degree, false);
+      for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
+        auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, false);
         
         lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
         //std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);

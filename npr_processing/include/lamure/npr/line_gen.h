@@ -54,7 +54,8 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
                            bool is_verbose);
 
     void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
-                                                  std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
+                                                  //std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
+                                                  std::vector< std::shared_ptr<std::vector<clusters_t>> >  & all_alpha_shapes_for_all_bins,
                                                   uint32_t degree,
                                                   bool color,
                                                   bool is_verbose);

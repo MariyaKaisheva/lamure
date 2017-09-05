@@ -144,10 +144,10 @@ namespace io {
 		return scm::math::make_rotation(angle, axis_x, axis_y, axis_z);
 	}
 
-	inline void write_intermediate_result_out(/*uint32_t output_stage,*/
-											  std::string output_filename,
+	inline void write_intermediate_result_out(std::string output_filename,
 											  float avg_min_distance,
-											  std::vector< std::shared_ptr<std::vector<clusters_t>> > const& all_clusters_per_bin_vector_for_all_slices){
+											  std::vector< std::shared_ptr<std::vector<clusters_t>> > const& all_clusters_per_bin_vector_for_all_slices,
+											  bool binning = false){
 
 		//std::string stage_name = get_stage_string(output_stage);
 		std::ofstream output_file(output_filename);
@@ -159,12 +159,20 @@ namespace io {
 			if(output_file.is_open()){
 				output_file <<"o testPOB" << std::endl;
 				uint32_t current_cluster_id = 0;
+				uint32_t current_bin_id = 0;
+				int32_t current_cluster_color_id = -1;
 				float thickness = avg_min_distance * 0.25f;
 				for (uint32_t bin_index = 0; bin_index < all_clusters_per_bin_vector_for_all_slices.size(); ++bin_index){
 					auto const& all_clusters_per_bin_vector = all_clusters_per_bin_vector_for_all_slices[bin_index];
-					
+					++current_bin_id;
 					for(uint32_t cluster_index = 0; cluster_index < all_clusters_per_bin_vector->size(); ++cluster_index){
-						uint32_t current_cluster_color_id = id_to_color_hash(current_cluster_id);
+						
+						if(binning){
+							current_cluster_color_id = id_to_color_hash(current_bin_id);
+						}else{
+							current_cluster_color_id = id_to_color_hash(current_cluster_id);
+						}
+
         				lamure::vec3b current_cluster_color = color_array[current_cluster_color_id];
         				++current_cluster_id;
 
