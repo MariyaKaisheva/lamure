@@ -9,12 +9,12 @@ void
  generate_line_art(scm::math::mat4f const& user_defined_rot_mat, 
                    std::string const& bvh_filename,
                    int32_t depth, 
-                   bool write_obj_file,
+                   bool write_intermediate_results,
                    bool spiral_look,
                    std::string output_base_name,
                    float min_distance,
                    float max_distance,
-                   int32_t output_stage,
+                  // int32_t output_stage,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
                    bool without_lod_adjustment,
@@ -113,9 +113,10 @@ void
             {*/
                 auto line_data =  line_gen::generate_lines(surfels_vector,
                                                            min_distance, max_distance,
-                                                           output_stage,
+                                                          // output_stage,
                                                            output_base_name, //used to write out intermediate stages
                                                            //intermediate_visalization_struct,
+                                                           write_intermediate_results,
                                                            use_nurbs, apply_alpha_shapes,
                                                            spiral_look, is_verbose);
 
@@ -138,11 +139,11 @@ void
 
                 std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
                 start_writing_output = std::chrono::system_clock::now();
-                if(write_obj_file){
-                  io::write_output(write_obj_file, obj_filename, line_data, bvh);
-                }else{
+                //if(write_obj_file){
+                  io::write_output(/*write_obj_file,*/ obj_filename, line_data, bvh);
+               /* }else{
                   io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
-                }
+                }*/
                 end_writing_output = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds_writing_output = end_writing_output - start_writing_output;
                 

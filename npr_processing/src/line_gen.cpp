@@ -404,8 +404,9 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
 std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                float min_distance, float max_distance, 
-               uint32_t output_stage,
+               //uint32_t output_stage,
                std::string output_base_name,
+               bool write_intermediate_result_out,
                //io::stage_content_storage & intermediate_visalization_struct,
                bool use_nurbs, bool apply_alpha_shapes,
                bool spiral_look, bool is_verbose){
@@ -475,12 +476,13 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                                                                     empty_element_remove_lambda),
                                                     all_clusters_per_bin_vector_for_all_bins.end());
 
-    if(io::get_stage_string(output_stage) == "BINNING"){
+    if(write_intermediate_result_out){
       
-      io::write_intermediate_result_out(output_stage,
-                                      output_base_name + ".pob",
+      io::write_intermediate_result_out(/*output_stage,*/
+                                      output_base_name + "_BINNING.pob",
                                       avg_min_distance, 
                                       all_clusters_per_bin_vector_for_all_bins);
+      std::cout << "BINNING\n";
       
       //return line_data;
     }
@@ -504,13 +506,13 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       ++bin_id;
     }
 
-    if(io::get_stage_string(output_stage) == "CLUSTERING"){
+    if(write_intermediate_result_out){
       
-      io::write_intermediate_result_out(output_stage,
-                                      output_base_name + ".pob",
+      io::write_intermediate_result_out(/*output_stage,*/
+                                      output_base_name + "_CLUSTERING.pob",
                                                                 avg_min_distance, 
                                       all_clusters_per_bin_vector_for_all_bins);
-      
+      std::cout << "CLUSTERING\n";
       //return line_data;
     }
 
@@ -528,9 +530,11 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                                              color,
                                              is_verbose);
 
-    if(io::get_stage_string(output_stage) == "ALPHA_SHAPES"){
+    if(write_intermediate_result_out){
+
+      std::cout << "ALPHA_SHAPES\n";
       
-      return line_data;
+      //return line_data;
     }
 
     end_alpha_shaping = std::chrono::system_clock::now();//end timing

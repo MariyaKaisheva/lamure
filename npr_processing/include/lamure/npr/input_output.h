@@ -50,7 +50,8 @@ namespace io {
 		options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
 		options_with_descriptions_vec.emplace("--verbose",             ": (optional) set flag for print-outs to TRUE");
 		options_with_descriptions_vec.emplace("--apply_alpha_shapes",  ": (optional) set flag for alpha-shaped to TRUE");
-		options_with_descriptions_vec.emplace("--write_xyz_points",    ": (optional) writes an xyz_point_cloud instead of a *.obj containing line data");
+		//options_with_descriptions_vec.emplace("--write_xyz_points",    ": (optional) writes an xyz_point_cloud instead of a *.obj containing line data");
+		options_with_descriptions_vec.emplace("--write_stages",        ": (optional) set flag writing out intermediate results to TRUE");
 		options_with_descriptions_vec.emplace("--generate_spirals",    ": (optional) set flag for spiral look to TRUE");
 	}
 
@@ -91,7 +92,7 @@ namespace io {
 		return valid_input; 
 	}
 
-	inline std::string get_stage_string(int32_t stage_num){
+	/*inline std::string get_stage_string(int32_t stage_num){
 		std::string stage_name = "";
 
 		switch (stage_num){
@@ -122,7 +123,7 @@ namespace io {
 		}
 
 		return stage_name;
-	}
+	}*/
 
 
 	inline scm::math::mat4f read_in_transformation_file(std::string input_filename){
@@ -143,16 +144,16 @@ namespace io {
 		return scm::math::make_rotation(angle, axis_x, axis_y, axis_z);
 	}
 
-	inline void write_intermediate_result_out(uint32_t output_stage,
+	inline void write_intermediate_result_out(/*uint32_t output_stage,*/
 											  std::string output_filename,
 											  float avg_min_distance,
 											  std::vector< std::shared_ptr<std::vector<clusters_t>> > const& all_clusters_per_bin_vector_for_all_slices){
 
-		std::string stage_name = get_stage_string(output_stage);
+		//std::string stage_name = get_stage_string(output_stage);
 		std::ofstream output_file(output_filename);
 
 
-		if(stage_name == "CLUSTERING" /*|| stage_name == "ALPHA_SHAPES"*/){
+		//if(stage_name == "CLUSTERING" /*|| stage_name == "ALPHA_SHAPES"*/){
 			//std::vector< std::shared_ptr<std::vector<clusters_t>> >
 			//auto const& all_clusters_per_bin_vector_for_all_slices = intermediate_visalization_struct.clusters_; 
 			if(output_file.is_open()){
@@ -184,13 +185,11 @@ namespace io {
 
 			}
 			output_file.close();
-		}
-
+		//}
 	}
 
 
-	inline void write_output(bool write_obj_file, std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh){
-		if(write_obj_file) {
+	inline void write_output(std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh){
 
 	      std::ofstream output_file(output_filename);
 	      unsigned long vert_counter = 1;
@@ -213,35 +212,6 @@ namespace io {
 	      else{
 	        std::cout << "<LAMURE_NPR_PROCESSING>: Cannot open output file to write to! \n";
 	      }
-
-	    }
-	    else {
-	      //consider hidden translation
-	      const scm::math::vec3f& translation = bvh->get_translation();
-	      std::ofstream output_file(output_filename);
-	      lamure::vec3f const fixed_upward_normal(0.0, 1.0, 0.0);
-	      lamure::vec3f const fixed_forward_normal(0.0, 0.0, 1.0);
-	      float const fixed_radius(0.02);
-	      if (output_file.is_open()){
-	          for (uint i = 0; i < line_data.size(); ++i){
-	           output_file << std::setprecision(DEFAULT_PRECISION) << translation.x + line_data.at(i).start.pos_coordinates_[0] << " ";
-	           output_file << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).start.pos_coordinates_[1] << " ";
-	           output_file << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).start.pos_coordinates_[2] << " ";
-	           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.x << " ";
-	           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.y << " ";
-	           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_upward_normal.z << " ";
-	           output_file << (int) line_data.at(i).start.r_  << " ";
-	           output_file << (int) line_data.at(i).start.g_ << " ";
-	           output_file << (int) line_data.at(i).start.b_ << " ";  
-	           output_file << std::setprecision(DEFAULT_PRECISION) << fixed_radius << std::endl;
-	          }
-	        
-	          output_file.close();
-	      }
-	      else{
-	        std::cout << "<LAMURE_NPR_PROCESSING>: Cannot open output file to write to! \n";
-	      }
-	    }
 
 	    std::cout << "<LAMURE_NPR_PROCESSING>: Output: " << output_filename << std::endl;
 	}
