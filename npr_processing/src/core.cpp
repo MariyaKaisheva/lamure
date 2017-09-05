@@ -79,26 +79,45 @@ void
             max_number_line_loops = std::ceil(max_number_line_loops / std::pow(2, depth_difference * 0.5));
         }*/
 
-
+        io::stage_content_storage intermediate_visalization_struct;
 
         //TODO add all stages; try to avoid code duplication!!!
-
-
-        switch (output_stage){
+        /*switch (output_stage){
             case 0: //"BINNING"
+               {
                 std::cout << "SHOULD STOP AFTER BINNING! \n\n";
                 break;
+               } 
             case 1: //"CLUSTERING"
-                 std::cout << "SHOULD STOP AFTER CLUSTERING! \n\n";   
-                break; 
+                {   
+                    std::cout << "SHOULD STOP AFTER CLUSTERING! \n\n";
+                    auto dummy_line_data =  line_gen::generate_lines(surfels_vector,
+                                              min_distance, max_distance,
+                                              output_stage,
+                                              intermediate_visalization_struct,
+                                              use_nurbs, apply_alpha_shapes,
+                                              spiral_look, is_verbose);
+
+                     std::string pob_filename = output_base_name + ".pob";
+                     io::write_intermediate_result_out(output_stage, pob_filename, intermediate_visalization_struct);
+
+                    break;
+                }
             case 2: //"ALPHA_SHAPES"
-                std::cout << "SHOULD STOP AFTER ALPHA_SHAPES! \n\n";
-                break;
+                {
+                    std::cout << "SHOULD STOP AFTER ALPHA_SHAPES! \n\n";
+                    break;
+                }
+
            default : //"FINAL"
-                auto line_data = line_gen::generate_lines(surfels_vector,
-                                          min_distance, max_distance,
-                                          use_nurbs, apply_alpha_shapes,
-                                          spiral_look, is_verbose);
+            {*/
+                auto line_data =  line_gen::generate_lines(surfels_vector,
+                                                           min_distance, max_distance,
+                                                           output_stage,
+                                                           output_base_name, //used to write out intermediate stages
+                                                           //intermediate_visalization_struct,
+                                                           use_nurbs, apply_alpha_shapes,
+                                                           spiral_look, is_verbose);
 
                 if(is_verbose) {
                     std::cout << "Num generated lines: " << line_data.size() << "\n";
@@ -112,15 +131,6 @@ void
                 end_inverse_rotation = std::chrono::system_clock::now();
                 std::chrono::duration<double> elapsed_seconds_inverse_rotation = end_inverse_rotation - start_inverse_rotation;
 
-                #if 0 //remove potential oulier line segments; 
-                std::cout << "Num lines BEFORE clean up: " << line_data.size() << std::endl;
-                auto avg_line_length = utils::compute_global_average_line_length(line_data); 
-                line_data.erase(std::remove_if(line_data.begin(),
-                                               line_data.end(),
-                                               [&](line l){return l.length >= 10 * avg_line_length;}),
-                                line_data.end());
-                std::cout << "Num lines AFTER clean up: " << line_data.size() << std::endl;
-                #endif
 
                 std::string obj_filename = output_base_name + ".obj";
                 std::string xyz_all_filename = output_base_name + ".xyz_all";
@@ -146,8 +156,10 @@ void
                     std::cout << "--------------- ok ----------------\n";
                 }
 
-                break; //"FINAL"
-        }
+               // break; //"FINAL"
+           // }
+                
+       // }
 
         delete in_access;
         delete bvh;

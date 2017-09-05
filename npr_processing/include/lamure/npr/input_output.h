@@ -2,8 +2,14 @@
 #define INPUT_OUTPUT_H
 
 #include <map>
+#include <memory>
 
 #include <lamure/ren/bvh.h>
+#include <lamure/npr/binning.h>
+#include <lamure/npr/clustering.h>
+#include <lamure/npr/color_hash_map.h>
+
+#include <scm/gl_core/math/mat4_gl.h>
 
 #include "utils.h"
 
@@ -11,6 +17,13 @@
 
 namespace npr {
 namespace io {
+
+	struct stage_content_storage{
+
+		std::vector<binning::bin> binns_;
+		std::vector< std::shared_ptr<std::vector<clusters_t>> > clusters_;
+		std::vector<std::vector< std::shared_ptr<std::vector<point> > > > alpha_shapes_;
+	};
 
 	inline char* get_cmd_option(char** begin, char** end, const std::string & option) {
 	    char** it = std::find(begin, end, option);
@@ -25,18 +38,20 @@ namespace io {
 
 	inline void prepare_options_with_descriptions(std::map<std::string, std::string>& options_with_descriptions_vec){
 
-		options_with_descriptions_vec.emplace("-f", ": (REQUIRED) specify .bvh input file");
-		options_with_descriptions_vec.emplace("-t", ": (optional) specify .rot input file that contains rotation for slicing plane");
-		options_with_descriptions_vec.emplace("-d", ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");
-		options_with_descriptions_vec.emplace("-l", ": (optional) specify max number of slicing layers; vaule should be more than 5");
-		options_with_descriptions_vec.emplace("-s", ": (optional) specify output stage");
-		options_with_descriptions_vec.emplace("-v", ": (optional); set flag for print-outs to TRUE");
-		options_with_descriptions_vec.emplace("--no_reduction", ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
+		options_with_descriptions_vec.emplace("-f", 				   ": (REQUIRED) specify .bvh input file");
+		options_with_descriptions_vec.emplace("-t", 				   ": (optional) specify .rot input file that contains rotation for slicing plane");
+		options_with_descriptions_vec.emplace("-d", 				   ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");
+		//options_with_descriptions_vec.emplace("-l", ": (optional) specify max number of slicing layers; vaule should be more than 5");
+		options_with_descriptions_vec.emplace("-s", 				   ": (optional) specify output stage");
+		options_with_descriptions_vec.emplace("-v", 				   ": (optional) set flag for print-outs to TRUE");
+		options_with_descriptions_vec.emplace("--min",                 ": (optional) set value for the minimal distance between 2 layers");
+		options_with_descriptions_vec.emplace("--max",                 ": (optional) set value for the maximal distance between 2 layers");
+		options_with_descriptions_vec.emplace("--no_reduction",        ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
 		options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
-		options_with_descriptions_vec.emplace("--verbose", ": (optional); set flag for print-outs to TRUE");
-		options_with_descriptions_vec.emplace("--apply_alpha_shapes", ": (optional) set flag for alpha-shaped to TRUE");
-		options_with_descriptions_vec.emplace("--write_xyz_points", ": (optional) writes an xyz_point_cloud instead of a *.obj containing line data");
-		options_with_descriptions_vec.emplace("--generate_spirals", ": (optional) set flag for spiral look to TRUE");
+		options_with_descriptions_vec.emplace("--verbose",             ": (optional) set flag for print-outs to TRUE");
+		options_with_descriptions_vec.emplace("--apply_alpha_shapes",  ": (optional) set flag for alpha-shaped to TRUE");
+		options_with_descriptions_vec.emplace("--write_xyz_points",    ": (optional) writes an xyz_point_cloud instead of a *.obj containing line data");
+		options_with_descriptions_vec.emplace("--generate_spirals",    ": (optional) set flag for spiral look to TRUE");
 	}
 
 
@@ -127,6 +142,52 @@ namespace io {
 		
 		return scm::math::make_rotation(angle, axis_x, axis_y, axis_z);
 	}
+
+	inline void write_intermediate_result_out(uint32_t output_stage,
+											  std::string output_filename,
+											  float avg_min_distance,
+											  std::vector< std::shared_ptr<std::vector<clusters_t>> > const& all_clusters_per_bin_vector_for_all_slices){
+
+		std::string stage_name = get_stage_string(output_stage);
+		std::ofstream output_file(output_filename);
+
+
+		if(stage_name == "CLUSTERING" /*|| stage_name == "ALPHA_SHAPES"*/){
+			//std::vector< std::shared_ptr<std::vector<clusters_t>> >
+			//auto const& all_clusters_per_bin_vector_for_all_slices = intermediate_visalization_struct.clusters_; 
+			if(output_file.is_open()){
+				output_file <<"o testPOB" << std::endl;
+				uint32_t current_cluster_id = 0;
+				float thickness = avg_min_distance * 0.25f;
+				for (uint32_t bin_index = 0; bin_index < all_clusters_per_bin_vector_for_all_slices.size(); ++bin_index){
+					auto const& all_clusters_per_bin_vector = all_clusters_per_bin_vector_for_all_slices[bin_index];
+					
+					for(uint32_t cluster_index = 0; cluster_index < all_clusters_per_bin_vector->size(); ++cluster_index){
+						uint32_t current_cluster_color_id = id_to_color_hash(current_cluster_id);
+        				lamure::vec3b current_cluster_color = color_array[current_cluster_color_id];
+        				++current_cluster_id;
+
+						auto const& cluster = all_clusters_per_bin_vector->at(cluster_index);
+
+						for(uint32_t point_index = 0; point_index < cluster.size(); ++point_index){
+							auto const& point = cluster[point_index];
+							float x = point.pos_coordinates_[0];
+							float y = point.pos_coordinates_[1];
+							float z = point.pos_coordinates_[2];
+							output_file <<"v " << x << " " << y << " " << z << "\n";
+							output_file <<"c " << current_cluster_color[0] / 255.0 << " " << current_cluster_color[1] / 255.0 << " " << current_cluster_color[2] / 255.0 << "\n";
+							output_file <<"t " << thickness << " \n"; 
+						}
+
+					}
+				}
+
+			}
+			output_file.close();
+		}
+
+	}
+
 
 	inline void write_output(bool write_obj_file, std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh){
 		if(write_obj_file) {

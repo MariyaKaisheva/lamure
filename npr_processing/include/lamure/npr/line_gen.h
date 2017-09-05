@@ -3,9 +3,12 @@
 
 
 #include "nurbscurve.h"
-#include "clustering.h"
+#include <lamure/npr/clustering.h>
+#include <lamure/npr/binning.h>
+#include <lamure/npr/input_output.h>
 
 #include <stack>
+#include <memory>
 
 
 namespace npr {
@@ -45,13 +48,29 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
 
     nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, float max_distance);
 
+    void prepare_clusters (std::vector<binning::bin> & bin_vec, 
+                           std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
+                           uint32_t num_cells_pro_dim,
+                           bool is_verbose);
+
+    void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
+                                                  std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
+                                                  uint32_t degree,
+                                                  bool color,
+                                                  bool is_verbose);
+
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                                      float min_distance,
                                      float max_distance,
+                                     uint32_t output_stage,
+                                     std::string output_base_name,
+                                     //io::stage_content_storage & intermediate_visalization_struct,
                                      bool use_nurbs = true, 
                                      bool apply_alpha_shapes = true,
                                      bool spiral_look = false,
                                      bool is_verbose = false);
+
+
 
 } //namespace line_gen
 } //namespace npr
