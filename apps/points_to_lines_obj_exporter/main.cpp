@@ -63,11 +63,11 @@ int main(int argc, char** argv)
     float max_distance = 1.0;
 
     if(io::cmd_option_exists(argv, argv+argc, "--max")){
-     max_distance = atoi(io::get_cmd_option(argv, argv+argc, "--max")); //user input
+     max_distance = atof(io::get_cmd_option(argv, argv+argc, "--max")); //user input
     }
 
     if(io::cmd_option_exists(argv, argv+argc, "--min")){
-     min_distance = atoi(io::get_cmd_option(argv, argv+argc, "--min")); //user input
+     min_distance = atof(io::get_cmd_option(argv, argv+argc, "--min")); //user input
     }
 
     /*int32_t output_stage = 100;
