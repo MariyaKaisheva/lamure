@@ -22,8 +22,8 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
         gpucast::math::point3d approximated_point_;
 
         line_approximation_job (float start_t, float end_t, gpucast::math::point3d middle_point) : start_t_(start_t),
-                                                                                                 end_t_(end_t), 
-                                                                                                 approximated_point_(middle_point) {}
+                                                                                                   end_t_(end_t), 
+                                                                                                   approximated_point_(middle_point) {}
     };
     //sort in descending order based on y coordinate value 
     bool comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B);
@@ -63,9 +63,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                                      float min_distance,
                                      float max_distance,
-                                     //uint32_t output_stage,
                                      std::string output_base_name,
-                                     //io::stage_content_storage & intermediate_visalization_struct,
                                      bool write_intermediate_results,
                                      bool use_nurbs = true, 
                                      bool apply_alpha_shapes = true,

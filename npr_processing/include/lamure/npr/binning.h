@@ -85,8 +85,7 @@ namespace binning {
 
 
 	bool evaluate_similarity(bin const& bin_A, 
-							 bin const& bin_B,
-							 bool using_merge_binning);
+							 bin const& bin_B);
 
 	bool evaluate_proximity(bin const& bin_A, 
                         	bin const& bin_B,

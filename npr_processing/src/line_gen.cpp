@@ -10,12 +10,6 @@
 namespace npr {
 namespace line_gen{
 
-//sort in descending order based on y coordinate value 
-bool 
-comparator (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
-    return A.pos_coordinates[1] < B.pos_coordinates[1];
-}
-
 gpucast::math::point3d 
 get_midpoint(gpucast::math::point3d const& start_point, gpucast::math::point3d const& end_point) {
 	auto x = (start_point[0] + end_point[0]) / 2.0;
@@ -335,7 +329,6 @@ void prepare_clusters (std::vector<binning::bin> & bins_vec,
         uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
         //generate clusters
-
         auto all_clusters_per_bin_vector = std::make_shared<std::vector<clusters_t>>(clustering::create_DBSCAN_clusters(current_bin_of_surfels.content_, eps, minPoints) );
 
 
@@ -348,7 +341,6 @@ void prepare_clusters (std::vector<binning::bin> & bins_vec,
 }
 
 void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
-                                              //std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
                                               std::vector< std::shared_ptr<std::vector<clusters_t>> >  & all_alpha_shapes_for_all_bins,
                                               uint32_t degree,
                                               bool color,
@@ -405,23 +397,20 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
 std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                float min_distance, float max_distance, 
-               //uint32_t output_stage,
                std::string output_base_name,
                bool write_intermediate_result_out,
-               //io::stage_content_storage & intermediate_visalization_struct,
                bool use_nurbs, bool apply_alpha_shapes,
                bool spiral_look, bool is_verbose){
 
 	uint32_t degree = 3; //TODO consider changeing this variable to user-defined one
   bool color = true; //TODO make dependent on --write_xyz_points
-	//parameters used for distance-based sampling; TODO make them use input dependent if still used in the long run
-  //int32_t max_num_points = 40;
-  //bool naive_sampling = false;
 
-  //sort input points according to their y-coordinate 
-  std::sort(input_data.begin(), input_data.end(), comparator);
   uint32_t last_el = input_data.size() - 1;
+
   auto model_height = std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
+  std::cout <<"!!!! Min Y from input data " <<input_data[0].pos_coordinates[1] << " Max Y from input data " << input_data[last_el].pos_coordinates[1] << std::endl;
+  std::cout <<"!!!! Initial min distance " << min_distance << " +  model_height " << model_height << std::endl;
+
  
   uint32_t max_num_line_loops = std::floor(model_height / min_distance);
 
@@ -444,151 +433,144 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   end_binning = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_binning = end_binning - start_binning;
 
-    std::vector<nurbs_vec_t> guiding_nurbs_vec;
+  std::vector<nurbs_vec_t> guiding_nurbs_vec;
 
-    
+  
+  //clustering
+ 
+  std::chrono::time_point<std::chrono::system_clock> start_clustering, end_clustering;
+  start_clustering = std::chrono::system_clock::now();
 
-   
-    //clustering
-   
-    std::chrono::time_point<std::chrono::system_clock> start_clustering, end_clustering;
-    start_clustering = std::chrono::system_clock::now();
+  std::vector< std::shared_ptr<std::vector<clusters_t>> > all_clusters_per_bin_vector_for_all_bins(bins_vec.size());
+  prepare_clusters(bins_vec, 
+                   all_clusters_per_bin_vector_for_all_bins,
+                   num_cells_pro_dim,
+                   is_verbose);
 
-    std::vector< std::shared_ptr<std::vector<clusters_t>> > all_clusters_per_bin_vector_for_all_bins(bins_vec.size());
-    prepare_clusters(bins_vec, 
-                     all_clusters_per_bin_vector_for_all_bins,
-                     num_cells_pro_dim,
-                     is_verbose);
+  end_clustering = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds_clustering_single_bin = end_clustering - start_clustering;
 
-    end_clustering = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds_clustering_single_bin = end_clustering - start_clustering;
-
-    auto empty_element_remove_lambda = [](std::shared_ptr<std::vector<clusters_t>> vector_element){
-      if(nullptr != vector_element) {
-        return vector_element->empty();
-      } else {
-        return true;
-        }
-    };
-
-    
-    all_clusters_per_bin_vector_for_all_bins.erase(std::remove_if(all_clusters_per_bin_vector_for_all_bins.begin(), 
-                                                                    all_clusters_per_bin_vector_for_all_bins.end(),
-                                                                    empty_element_remove_lambda),
-                                                    all_clusters_per_bin_vector_for_all_bins.end());
-
-    if(write_intermediate_result_out){
-      bool use_binning_coloring = true;
-      io::write_intermediate_result_out(output_base_name + "_BINNING.pob",
-                                        avg_min_distance, 
-                                        all_clusters_per_bin_vector_for_all_bins, 
-                                        use_binning_coloring);
-      std::cout << "BINNING\n";
-    }
-
-
-    //project points y-value to center of bin
-    uint32_t bin_id = 0;
-    for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
-
-      float center_of_bin = bins_vec[bin_id].pos_along_slicing_axis_;
-
-      auto& clusters_in_bin = *clusters_in_bin_ptr;
-      for( auto& cluster : clusters_in_bin) {
-
-        for( auto& point_in_cluster : cluster) {  
-          point_in_cluster.pos_coordinates_[1] = center_of_bin;
-        }
+  auto empty_element_remove_lambda = [](std::shared_ptr<std::vector<clusters_t>> vector_element){
+    if(nullptr != vector_element) {
+      return vector_element->empty();
+    } else {
+      return true;
       }
+  };
+
+  
+  all_clusters_per_bin_vector_for_all_bins.erase(std::remove_if(all_clusters_per_bin_vector_for_all_bins.begin(), 
+                                                                  all_clusters_per_bin_vector_for_all_bins.end(),
+                                                                  empty_element_remove_lambda),
+                                                  all_clusters_per_bin_vector_for_all_bins.end());
+
+  if(write_intermediate_result_out){
+    bool use_binning_coloring = true;
+    io::write_intermediate_result_out(output_base_name + "_BINNING.pob",
+                                      avg_min_distance, 
+                                      all_clusters_per_bin_vector_for_all_bins, 
+                                      use_binning_coloring);
+  }
 
 
-      ++bin_id;
-    }
+  //project points y-value to center of bin
+  uint32_t bin_id = 0;
+  for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
 
-    if(write_intermediate_result_out){      
-      io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
-                                        avg_min_distance, 
-                                        all_clusters_per_bin_vector_for_all_bins);
-      std::cout << "CLUSTERING\n";
+    float center_of_bin = bins_vec[bin_id].pos_along_slicing_axis_;
 
-    }
+    auto& clusters_in_bin = *clusters_in_bin_ptr;
+    for( auto& cluster : clusters_in_bin) {
 
-
-
-    //alpha-shapes detection
-
-    std::chrono::time_point<std::chrono::system_clock> start_alpha_shaping, end_alpha_shaping;
-    start_alpha_shaping = std::chrono::system_clock::now();//start timing
-
-    std::vector< std::shared_ptr<std::vector<clusters_t>> >  all_alpha_shapes_for_all_bins(all_clusters_per_bin_vector_for_all_bins.size());
-    clean_clusters_via_alpha_shape_detection(all_clusters_per_bin_vector_for_all_bins,
-                                             all_alpha_shapes_for_all_bins,
-                                             degree,
-                                             color,
-                                             is_verbose);
-
-    if(write_intermediate_result_out){
-      io::write_intermediate_result_out(output_base_name + "_ALPHA_SHAPES.pob",
-                                  avg_min_distance, 
-                                  all_alpha_shapes_for_all_bins);
-
-      std::cout << "ALPHA_SHAPES\n";
-    }
-
-    end_alpha_shaping = std::chrono::system_clock::now();//end timing
-    std::chrono::duration<double> elapsed_seconds_AS_dection_per_cluster = end_alpha_shaping - start_alpha_shaping;
-
-
-    std::vector< std::shared_ptr< std::vector<std::vector<line>> >> lines_for_all_bins(all_alpha_shapes_for_all_bins.size());
-
-    //nurbs fitting
-    std::chrono::time_point<std::chrono::system_clock> start_nurbs_fitting, end_nurbs_fitting;
-    start_nurbs_fitting = std::chrono::system_clock::now();//start timing
-
-    #pragma omp parallel for
-    for(uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size(); ++bin_index){
-     std::shared_ptr<std::vector<clusters_t>>& all_alpha_shapes_in_current_bin_vec = all_alpha_shapes_for_all_bins.at(bin_index);
-
-      std::vector<std::vector<line>> lines_per_alpha_shape_in_current_bin;
-      for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
-        auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, false);
-        
-        lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
-        //std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);
-        //line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
-      }
-
-      lines_for_all_bins[bin_index] = std::make_shared<std::vector<std::vector<line>>>( lines_per_alpha_shape_in_current_bin ) ;
-
-    }
-
-    end_nurbs_fitting = std::chrono::system_clock::now();//end timing
-    std::chrono::duration<double> elapsed_seconds_nurbs_fitting = end_nurbs_fitting - start_nurbs_fitting;
-
-    for(auto& lines_in_current_bin : lines_for_all_bins) {
-      for(auto& lines_per_alpha_shape : *lines_in_current_bin) {
-        line_data.insert(std::end(line_data), std::begin(lines_per_alpha_shape), std::end(lines_per_alpha_shape));
+      for( auto& point_in_cluster : cluster) {  
+        point_in_cluster.pos_coordinates_[1] = center_of_bin;
       }
     }
 
-    if(is_verbose){
-      std::cout << "\t binning: "                << elapsed_seconds_binning.count()                 << "s\n";
-      std::cout << "\t clustering: "             << elapsed_seconds_clustering_single_bin.count()   << "s\n";
-      std::cout << "\t detecting Alpha-shapes: " << elapsed_seconds_AS_dection_per_cluster.count()  << "s\n";
-      std::cout << "\t nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
+
+    ++bin_id;
+  }
+
+  if(write_intermediate_result_out){      
+    io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
+                                      avg_min_distance, 
+                                      all_clusters_per_bin_vector_for_all_bins);
+  }
+
+
+
+  //alpha-shapes detection
+  std::chrono::time_point<std::chrono::system_clock> start_alpha_shaping, end_alpha_shaping;
+  start_alpha_shaping = std::chrono::system_clock::now();//start timing
+
+  std::vector< std::shared_ptr<std::vector<clusters_t>> >  all_alpha_shapes_for_all_bins(all_clusters_per_bin_vector_for_all_bins.size());
+  clean_clusters_via_alpha_shape_detection(all_clusters_per_bin_vector_for_all_bins,
+                                           all_alpha_shapes_for_all_bins,
+                                           degree,
+                                           color,
+                                           is_verbose);
+
+  end_alpha_shaping = std::chrono::system_clock::now();//end timing
+  std::chrono::duration<double> elapsed_seconds_AS_dection_per_cluster = end_alpha_shaping - start_alpha_shaping;
+
+  if(write_intermediate_result_out){
+    io::write_intermediate_result_out(output_base_name + "_ALPHA_SHAPES.pob",
+                                avg_min_distance, 
+                                all_alpha_shapes_for_all_bins);
+
+    std::cout << "ALPHA_SHAPES\n";
+  }
+
+  std::vector< std::shared_ptr< std::vector<std::vector<line>> >> lines_for_all_bins(all_alpha_shapes_for_all_bins.size());
+
+  //nurbs fitting
+  std::chrono::time_point<std::chrono::system_clock> start_nurbs_fitting, end_nurbs_fitting;
+  start_nurbs_fitting = std::chrono::system_clock::now();//start timing
+
+  #pragma omp parallel for
+  for(uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size(); ++bin_index){
+   std::shared_ptr<std::vector<clusters_t>>& all_alpha_shapes_in_current_bin_vec = all_alpha_shapes_for_all_bins.at(bin_index);
+
+    std::vector<std::vector<line>> lines_per_alpha_shape_in_current_bin;
+    for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
+      auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, false);
+      
+      lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
+      //std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);
+      //line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
     }
 
-    /*float max_winding_distance = max_distance / 3.0; 
-    if(use_nurbs && spiral_look){
-      std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);
-      bool adaptive = true; 
-      for(auto& current_spiral_section : final_curves_vec){
-        std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
-        line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
-      }
-    }*/
+    lines_for_all_bins[bin_index] = std::make_shared<std::vector<std::vector<line>>>( lines_per_alpha_shape_in_current_bin ) ;
 
-    return line_data;
+  }
+
+  end_nurbs_fitting = std::chrono::system_clock::now();//end timing
+  std::chrono::duration<double> elapsed_seconds_nurbs_fitting = end_nurbs_fitting - start_nurbs_fitting;
+
+  for(auto& lines_in_current_bin : lines_for_all_bins) {
+    for(auto& lines_per_alpha_shape : *lines_in_current_bin) {
+      line_data.insert(std::end(line_data), std::begin(lines_per_alpha_shape), std::end(lines_per_alpha_shape));
+    }
+  }
+
+  if(is_verbose){
+    std::cout << "\t --  Time LOG:  -- binning: "                << elapsed_seconds_binning.count()                 << "s\n";
+    std::cout << "\t --  Time LOG:  -- clustering: "             << elapsed_seconds_clustering_single_bin.count()   << "s\n";
+    std::cout << "\t --  Time LOG:  -- detecting Alpha-shapes: " << elapsed_seconds_AS_dection_per_cluster.count()  << "s\n";
+    std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
+  }
+
+  /*float max_winding_distance = max_distance / 3.0; 
+  if(use_nurbs && spiral_look){
+    std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);
+    bool adaptive = true; 
+    for(auto& current_spiral_section : final_curves_vec){
+      std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
+      line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
+    }
+  }*/
+
+  return line_data;
 }
 
 } //namespace line_gen

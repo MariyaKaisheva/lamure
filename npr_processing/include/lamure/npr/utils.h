@@ -7,7 +7,7 @@
 #include <vector>
 #include <limits>
 
-			//surfel layout as it is used for rendering 
+		//surfel layout as it is used for rendering 
 		struct xyzall_surfel_t {
 		  xyzall_surfel_t() : radius_(0.0) {}
 		  float pos_coordinates[3];
@@ -362,7 +362,7 @@ namespace utils {
 
 		void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat);
 
-		std::pair<float, float> estimate_binning_densities(std::string const& bvh_filename);
+		std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose);
 
 } //utils
 } //npr

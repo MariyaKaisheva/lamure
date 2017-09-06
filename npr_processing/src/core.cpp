@@ -14,7 +14,6 @@ void
                    std::string output_base_name,
                    float min_distance,
                    float max_distance,
-                  // int32_t output_stage,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
                    bool without_lod_adjustment,
@@ -35,6 +34,9 @@ void
 
         if(is_verbose) {
             std::cout << "------------------------------------------------------------------------------\n" << std::endl;
+            std::cout << "------------------------------------- L O G ----------------------------------\n" << std::endl;
+            std::cout << "------------------------------------------------------------------------------\n" << std::endl;
+
             std::cout << "Working with surfels at depth " << depth << "; Max depth for this model is "<<  bvh->get_depth() 
                       << std::endl <<std::endl;
         }
@@ -62,7 +64,6 @@ void
         size_t num_surfels_in_vector = surfels_vector.size();
         #pragma omp parallel for
         for(size_t surfel_idx = 0; surfel_idx < num_surfels_in_vector; ++surfel_idx) {
-        //for(auto& surfel : surfels_vector){
             auto& surfel = surfels_vector[surfel_idx];
             scm::math::vec3f original_coord = scm::math::vec4f(surfel.pos_coordinates[0], surfel.pos_coordinates[1], surfel.pos_coordinates[2], 1.0f);
             auto transformed_coord = inverse_rot_mat * original_coord;
@@ -71,96 +72,71 @@ void
             surfel.pos_coordinates[2] = transformed_coord.z; 
         }
 
-
-        //reduce number of slicing layers proporional to selected LoD
-        // lower LoD => less layers to avoid degenerated clustering
-        /*if(!without_lod_adjustment){
-            auto depth_difference = (bvh->get_depth() - depth);
-            max_number_line_loops = std::ceil(max_number_line_loops / std::pow(2, depth_difference * 0.5));
-        }*/
-
         io::stage_content_storage intermediate_visalization_struct;
 
-        //TODO add all stages; try to avoid code duplication!!!
-        /*switch (output_stage){
-            case 0: //"BINNING"
-               {
-                std::cout << "SHOULD STOP AFTER BINNING! \n\n";
-                break;
-               } 
-            case 1: //"CLUSTERING"
-                {   
-                    std::cout << "SHOULD STOP AFTER CLUSTERING! \n\n";
-                    auto dummy_line_data =  line_gen::generate_lines(surfels_vector,
-                                              min_distance, max_distance,
-                                              output_stage,
-                                              intermediate_visalization_struct,
-                                              use_nurbs, apply_alpha_shapes,
-                                              spiral_look, is_verbose);
 
-                     std::string pob_filename = output_base_name + ".pob";
-                     io::write_intermediate_result_out(output_stage, pob_filename, intermediate_visalization_struct);
+        //sort in descending order based on y coordinate value 
+        auto comparator = [] (const xyzall_surfel_t& A, const xyzall_surfel_t& B) {
+            return A.pos_coordinates[1] < B.pos_coordinates[1];
+        };
 
-                    break;
-                }
-            case 2: //"ALPHA_SHAPES"
-                {
-                    std::cout << "SHOULD STOP AFTER ALPHA_SHAPES! \n\n";
-                    break;
-                }
+        //sort input points according to their y-coordinate 
+        std::sort(surfels_vector.begin(), surfels_vector.end(), comparator);
 
-           default : //"FINAL"
-            {*/
-                auto line_data =  line_gen::generate_lines(surfels_vector,
-                                                           min_distance, max_distance,
-                                                          // output_stage,
-                                                           output_base_name, //used to write out intermediate stages
-                                                           //intermediate_visalization_struct,
-                                                           write_intermediate_results,
-                                                           use_nurbs, apply_alpha_shapes,
-                                                           spiral_look, is_verbose);
-
-                if(is_verbose) {
-                    std::cout << "Num generated lines: " << line_data.size() << "\n";
-                    std::cout << "------  Time LOG:  ------" << std::endl;
-                }
-
-                //transform data again to return to the original model orientation
-                std::chrono::time_point<std::chrono::system_clock> start_inverse_rotation, end_inverse_rotation;
-                start_inverse_rotation = std::chrono::system_clock::now();
-                utils::transform(line_data, user_defined_rot_mat);
-                end_inverse_rotation = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds_inverse_rotation = end_inverse_rotation - start_inverse_rotation;
+        
+        //validate input 
+        if(min_distance < 0 || max_distance < 0){
+            auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose);
+            min_distance = suggested_distance_thresholds.first;
+            max_distance = suggested_distance_thresholds.second;
+            if(is_verbose){
+                std::cout << "\t min_distance: " << min_distance << "\n";
+                std::cout << "\t max_distance: " << max_distance << "\n";
+                std::cout << "----------------------------\n";
+            }
+        }
 
 
-                std::string obj_filename = output_base_name + ".obj";
-                std::string xyz_all_filename = output_base_name + ".xyz_all";
+        auto line_data =  line_gen::generate_lines(surfels_vector,
+                                                   min_distance, max_distance,
+                                                   output_base_name, //used to write out intermediate stages
+                                                   write_intermediate_results,
+                                                   use_nurbs, apply_alpha_shapes,
+                                                   spiral_look, is_verbose);
+
+        if(is_verbose) {
+            std::cout << "Num generated lines: " << line_data.size() << "\n";
+        }
+
+        //transform data again to return to the original model orientation
+        std::chrono::time_point<std::chrono::system_clock> start_inverse_rotation, end_inverse_rotation;
+        start_inverse_rotation = std::chrono::system_clock::now();
+        utils::transform(line_data, user_defined_rot_mat);
+        end_inverse_rotation = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds_inverse_rotation = end_inverse_rotation - start_inverse_rotation;
 
 
-                std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
-                start_writing_output = std::chrono::system_clock::now();
-                //if(write_obj_file){
-                  io::write_output(/*write_obj_file,*/ obj_filename, line_data, bvh);
-               /* }else{
-                  io::write_output(write_obj_file, xyz_all_filename, line_data, bvh);
-                }*/
-                end_writing_output = std::chrono::system_clock::now();
-                std::chrono::duration<double> elapsed_seconds_writing_output = end_writing_output - start_writing_output;
-                
-                if(is_verbose) {
+        std::string obj_filename = output_base_name + ".obj";
+        std::string xyz_all_filename = output_base_name + ".xyz_all";
 
-                    std::cout << "\t rotating model to original position: " << elapsed_seconds_inverse_rotation.count() << "s\n";
-                    std::cout << "\t writing output: " << elapsed_seconds_writing_output.count() << "s\n";
-                    std::cout << "-----------------------------------\n" << std::endl;
-                    std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
-                    std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;
-                    std::cout << "--------------- ok ----------------\n";
-                }
 
-               // break; //"FINAL"
-           // }
-                
-       // }
+        std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
+        start_writing_output = std::chrono::system_clock::now();
+
+        io::write_output( obj_filename, line_data, bvh);
+
+        end_writing_output = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds_writing_output = end_writing_output - start_writing_output;
+        
+        if(is_verbose) {
+
+            std::cout << "\t --  Time LOG:  -- rotating model to original position: " << elapsed_seconds_inverse_rotation.count() << "s\n";
+            std::cout << "\t --  Time LOG:  -- writing output: " << elapsed_seconds_writing_output.count() << "s\n";
+            std::cout << "-----------------------------------\n" << std::endl;
+            std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
+            std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;
+            std::cout << "--------------- ok ----------------\n";
+        }
 
         delete in_access;
         delete bvh;

@@ -83,13 +83,28 @@ namespace utils {
 		}
 	}
 
-	std::pair<float, float> estimate_binning_densities(std::string const& bvh_filename){
+	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose){
 
-		std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
+		/*std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
 		scm::math::vec3f upper_bound_coord = bvh->get_bounding_box(0).max_vertex();
 		scm::math::vec3f lower_bound_coord = bvh->get_bounding_box(0).min_vertex();
 
-		float bb_dims[3] {-1.0f, -1.0f, -1.0f};
+		scm::math::vec4f homogen_upper_bound_coord{ upper_bound_coord[0], upper_bound_coord[1], upper_bound_coord[2], 1.0f };
+		scm::math::vec4f homogen_lower_bound_coord{ lower_bound_coord[0], lower_bound_coord[1], lower_bound_coord[2], 1.0f };
+
+		homogen_upper_bound_coord = inverse_rotation_mat * homogen_upper_bound_coord;
+		homogen_lower_bound_coord = inverse_rotation_mat * homogen_lower_bound_coord;
+
+		upper_bound_coord = scm::math::vec3f{ homogen_upper_bound_coord[0], homogen_upper_bound_coord[1], homogen_upper_bound_coord[2] };
+		lower_bound_coord = scm::math::vec3f{ homogen_lower_bound_coord[0], homogen_lower_bound_coord[1], homogen_lower_bound_coord[2] };*/
+
+		/*if(is_verbose){
+			std::cout << "Model bounding box corners \n";
+			std::cout << "\t - min: (" << lower_bound_coord.x << ", " << lower_bound_coord.y << ", " << lower_bound_coord.z << ") \n";
+			std::cout << "\t - max: (" << upper_bound_coord.x << ", " << upper_bound_coord.y << ", " << upper_bound_coord.z << ") \n";
+		}*/
+
+		/*float bb_dims[3] {-1.0f, -1.0f, -1.0f};
 		float max_length(0.0f);
 		float min_length(std::numeric_limits<float>::max());
 
@@ -97,10 +112,11 @@ namespace utils {
 			bb_dims[dim_idx] = std::fabs(upper_bound_coord[dim_idx] - lower_bound_coord[dim_idx]);
 			max_length = std::max(max_length, bb_dims[dim_idx]);
 			min_length = std::min(min_length, bb_dims[dim_idx]);
-		}
-
-		float min_distance_between_two_bins = 0.3 * max_length; 
-		float max_distance_between_two_bins = 0.1 * min_length;
+		}*/
+		uint32_t last_el = input_data.size() - 1;
+		float slicing_axis_length =  std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
+		float min_distance_between_two_bins = 0.05 * slicing_axis_length;
+		float max_distance_between_two_bins = 0.1 * slicing_axis_length; 
 
 		return std::make_pair(min_distance_between_two_bins, max_distance_between_two_bins);
 	}
