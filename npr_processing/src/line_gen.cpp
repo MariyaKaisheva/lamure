@@ -88,8 +88,8 @@ gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, 
 
 
    //connect first to last segment
-   auto first_point = control_points_vec[0];
-   control_points_vec.push_back(first_point);
+   //auto first_point = control_points_vec[0];
+   //control_points_vec.push_back(first_point);
 
   //generate knot vector
   std::vector<double> knot_vec;
@@ -222,6 +222,10 @@ std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d & nurbs_curve, bool
   return line_segments_vec;
 }
 
+void map_to_normalized_range(float& value_to_map, float const input_range_start, float const input_range_end) {
+  value_to_map = ( 1.0 / (input_range_end - input_range_start)) * (value_to_map - input_range_start);
+}
+
 std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve, 
                                         gpucast::math::nurbscurve3d & bottom_curve,
                                         float  max_distance){
@@ -230,7 +234,7 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   top_curve.normalize_knotvector();
   bottom_curve.normalize_knotvector();
   uint32_t num_points_per_winding = 100;
-  float evaluation_offset = 0.0001;
+  float evaluation_offset = 0.00001;
 
   //both curves have constat y-coordinate value at any sampling position 
   //height (y-coordinate) between the 2 curves gives is used to calculate mun windings 
@@ -256,6 +260,8 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
     float sampling_parameter_t = std::max(evaluation_offset, fractional_of_accumulated_t);
 
     float blend_parameter = accumulated_t / float(windings);
+
+    map_to_normalized_range(blend_parameter, evaluation_offset / windings, (windings + evaluation_offset) / windings );
 
     auto top_curve_sample = top_curve.evaluate(sampling_parameter_t);
     auto bottom_curve_sample = bottom_curve.evaluate(sampling_parameter_t); 
@@ -527,10 +533,13 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::chrono::time_point<std::chrono::system_clock> start_nurbs_fitting, end_nurbs_fitting;
   start_nurbs_fitting = std::chrono::system_clock::now();//start timing
 
+  guiding_nurbs_vec.resize(all_alpha_shapes_for_all_bins.size());
+
   #pragma omp parallel for
   for(uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size(); ++bin_index){
    std::shared_ptr<std::vector<clusters_t>>& all_alpha_shapes_in_current_bin_vec = all_alpha_shapes_for_all_bins.at(bin_index);
 
+    nurbs_vec_t guiding_nurbs_per_layer;
     std::vector<std::vector<line>> lines_per_alpha_shape_in_current_bin;
     for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
       auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, false);
@@ -538,8 +547,11 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
       //std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);
       //line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
+
+      guiding_nurbs_per_layer.push_back(cluster_approximating_curve);
     }
 
+    guiding_nurbs_vec[bin_index] = (guiding_nurbs_per_layer);
     lines_for_all_bins[bin_index] = std::make_shared<std::vector<std::vector<line>>>( lines_per_alpha_shape_in_current_bin ) ;
 
   }
@@ -560,15 +572,16 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
   }
 
-  /*float max_winding_distance = max_distance / 3.0; 
+  float max_winding_distance = max_distance / 3.0; 
   if(use_nurbs && spiral_look){
+    line_data.clear();
     std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);
     bool adaptive = true; 
     for(auto& current_spiral_section : final_curves_vec){
       std::vector<line> line_data_from_sampled_curve = evaluate_curve(current_spiral_section, adaptive);
       line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
     }
-  }*/
+  }
 
   return line_data;
 }
