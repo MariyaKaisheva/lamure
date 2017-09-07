@@ -14,6 +14,9 @@ void
                    std::string output_base_name,
                    float min_distance,
                    float max_distance,
+                   float red_channel_line,
+                   float green_channel_line,
+                   float blue_channel_line,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
                    bool without_lod_adjustment,
@@ -34,7 +37,7 @@ void
 
         if(is_verbose) {
             std::cout << "------------------------------------------------------------------------------\n" << std::endl;
-            std::cout << "------------------------------------- L O G ----------------------------------\n" << std::endl;
+            std::cout << "-----------------------------------  L O G  ----------------------------------\n" << std::endl;
             std::cout << "------------------------------------------------------------------------------\n" << std::endl;
 
             std::cout << "Working with surfels at depth " << depth << "; Max depth for this model is "<<  bvh->get_depth() 
@@ -96,9 +99,10 @@ void
             }
         }
 
-
+        float out_avg_min_distance = -1.0f;
         auto line_data =  line_gen::generate_lines(surfels_vector,
                                                    min_distance, max_distance,
+                                                   out_avg_min_distance,
                                                    output_base_name, //used to write out intermediate stages
                                                    write_intermediate_results,
                                                    use_nurbs, apply_alpha_shapes,
@@ -117,6 +121,7 @@ void
 
 
         std::string obj_filename = output_base_name + ".obj";
+        std::string lob_filename = output_base_name + ".lob";
         std::string xyz_all_filename = output_base_name + ".xyz_all";
 
 
@@ -124,6 +129,9 @@ void
         start_writing_output = std::chrono::system_clock::now();
 
         io::write_output( obj_filename, line_data, bvh);
+
+        //write out lob file for lamure
+        io::write_output_lob(lob_filename, line_data, bvh, out_avg_min_distance, red_channel_line, green_channel_line, blue_channel_line);
 
         end_writing_output = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds_writing_output = end_writing_output - start_writing_output;

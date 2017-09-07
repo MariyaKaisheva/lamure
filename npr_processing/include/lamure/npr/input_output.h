@@ -37,18 +37,21 @@ namespace io {
 	}
 
 	inline void prepare_options_with_descriptions(std::map<std::string, std::string>& options_with_descriptions_vec){
-
+		//TODO ubdate the --no... flags
 		options_with_descriptions_vec.emplace("-f", 				   ": (REQUIRED) specify .bvh input file");
 		options_with_descriptions_vec.emplace("-t", 				   ": (optional) specify .rot input file that contains rotation for slicing plane");
 		options_with_descriptions_vec.emplace("-d", 				   ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");
 		options_with_descriptions_vec.emplace("-s", 				   ": (optional) specify output stage");
 		options_with_descriptions_vec.emplace("-v", 				   ": (optional) set flag for print-outs to TRUE");
+		options_with_descriptions_vec.emplace("--red", 				   ": (optional) set color value (float: 0.0 - 1.0) for red channel of lines");
+		options_with_descriptions_vec.emplace("--green", 			   ": (optional) set color value (float: 0.0 - 1.0) for green channel of lines");
+		options_with_descriptions_vec.emplace("--blue", 			   ": (optional) set color value (float: 0.0 - 1.0) for blue channel of lines");
 		options_with_descriptions_vec.emplace("--min",                 ": (optional) set value for the minimal distance between 2 layers");
 		options_with_descriptions_vec.emplace("--max",                 ": (optional) set value for the maximal distance between 2 layers");
-		options_with_descriptions_vec.emplace("--no_reduction",        ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
-		options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
+		//options_with_descriptions_vec.emplace("--no_reduction",        ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
+		//options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
 		options_with_descriptions_vec.emplace("--verbose",             ": (optional) set flag for print-outs to TRUE");
-		options_with_descriptions_vec.emplace("--apply_alpha_shapes",  ": (optional) set flag for alpha-shaped to TRUE");
+		//options_with_descriptions_vec.emplace("--apply_alpha_shapes",  ": (optional) set flag for alpha-shaped to TRUE");
 		options_with_descriptions_vec.emplace("--write_stages",        ": (optional) set flag writing out intermediate results to TRUE");
 		options_with_descriptions_vec.emplace("--generate_spirals",    ": (optional) set flag for spiral look to TRUE");
 	}
@@ -127,7 +130,7 @@ namespace io {
 				for(uint32_t cluster_index = 0; cluster_index < all_clusters_per_bin_vector->size(); ++cluster_index){
 					
 					if(binning){
-						current_cluster_color_id = id_to_color_hash(current_bin_id);
+						current_cluster_color_id = id_to_color_hash(current_bin_id % 2);
 					}else{
 						current_cluster_color_id = id_to_color_hash(current_cluster_id);
 					}
@@ -171,6 +174,67 @@ namespace io {
 	           output_file << "v " << std::setprecision(DEFAULT_PRECISION) <<  translation.x + line_data.at(i).end.pos_coordinates_[0] + x_offset << " " << std::setprecision(DEFAULT_PRECISION) << translation.y + line_data.at(i).end.pos_coordinates_[1] << " " << std::setprecision(DEFAULT_PRECISION) << translation.z + line_data.at(i).end.pos_coordinates_[2] << "\n";
 	           output_file << "f " << vert_counter << " " << (vert_counter + 1) << " " << (vert_counter + 2) << "\n";
 	           vert_counter += 3;
+	          }
+
+	          output_file.close();
+	      }
+	      else{
+	        std::cout << "<LAMURE_NPR_PROCESSING>: Cannot open output file to write to! \n";
+	      }
+
+	    std::cout << "OUTPUT FILE: " << output_filename << std::endl;
+	}
+
+
+	inline void write_output_lob(std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh, float avg_min_distance, float r = 1.0, float g = 1.0, float b = 1.0){
+
+	      std::ofstream output_file(output_filename);
+
+		  float thickness = avg_min_distance ;
+	      //consider hidden translation
+
+		  float float_max{std::numeric_limits<float>::max()};
+	      lamure::vec3f previous_end_vertex_position{float_max, float_max, float_max};
+	      const scm::math::vec3f& translation = bvh->get_translation();
+
+	      uint32_t total_line_object_counter = 0;
+	      if (output_file.is_open()){
+
+
+
+	          for (uint line_idx = 0; line_idx < line_data.size(); ++line_idx){
+	      	    auto const& current_start_vertex_position = line_data.at(line_idx).end.pos_coordinates_;
+	      	    auto const& current_end_vertex_position   = line_data.at(line_idx).start.pos_coordinates_;
+
+	            if( (previous_end_vertex_position[0] != current_start_vertex_position[0] ) ||
+	            	(previous_end_vertex_position[1] != current_start_vertex_position[1] ) ||
+	            	(previous_end_vertex_position[2] != current_start_vertex_position[2] )
+	              ) {
+
+	              if( 0 != line_idx) {
+			        output_file << "v " << std::setprecision(DEFAULT_PRECISION) << translation.x + previous_end_vertex_position[0] << " " << std::setprecision(DEFAULT_PRECISION) << translation.y + previous_end_vertex_position[1] << " " << std::setprecision(DEFAULT_PRECISION)<< translation.z + previous_end_vertex_position[2] << "\n";
+			        output_file << "c " << r << " " << g << " " << b << "\n";
+			        output_file << "t " << avg_min_distance << "\n";	              	
+	              }
+
+	              output_file << "o line_object_" << total_line_object_counter++ << "\n";
+	            }
+
+	           output_file << "v " << std::setprecision(DEFAULT_PRECISION) << translation.x + current_start_vertex_position[0] << " " << std::setprecision(DEFAULT_PRECISION) << translation.y + current_start_vertex_position[1] << " " << std::setprecision(DEFAULT_PRECISION)<< translation.z + current_start_vertex_position[2] << "\n";
+			   output_file << "c " << r << " " << g << " " << b << "\n";
+	           output_file << "t " << avg_min_distance << "\n";
+
+
+	           if( (line_data.size() - 1) == line_idx) {
+			     output_file << "v " << std::setprecision(DEFAULT_PRECISION) << translation.x + current_end_vertex_position[0] << " " << std::setprecision(DEFAULT_PRECISION) << translation.y + current_end_vertex_position[1] << " " << std::setprecision(DEFAULT_PRECISION)<< translation.z + current_end_vertex_position[2] << "\n";
+			     output_file << "c " << r << " " << g << " " << b << "\n";
+			     output_file << "t " << avg_min_distance << "\n";	
+	           }
+
+	           //set current end to previous end vertex position before starting next loop iteration
+	           for(int dim_idx = 0; dim_idx < 3; ++dim_idx) {
+	           	previous_end_vertex_position[dim_idx] = current_end_vertex_position[dim_idx];
+	           }
 	          }
 
 	          output_file.close();

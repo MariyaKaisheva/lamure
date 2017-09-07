@@ -402,7 +402,8 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
 
 std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, 
-               float min_distance, float max_distance, 
+               float min_distance, float max_distance,
+               float& out_avg_min_distance,
                std::string output_base_name,
                bool write_intermediate_result_out,
                bool use_nurbs, bool apply_alpha_shapes,
@@ -424,6 +425,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   //with size to holding appyimately 1000 data points (assuming uniform point distribution)
   uint32_t num_cells_pro_dim =  std::ceil(std::cbrt(input_data.size() / 1000)); 
   float avg_min_distance = utils::compute_avg_min_distance(input_data, num_cells_pro_dim, num_cells_pro_dim, num_cells_pro_dim);
+
+  //write the avg min distance for the calling core function to use it. NOTE: don't use out_avg_min_distance anymore after the next line
+  out_avg_min_distance = avg_min_distance;
+
   float distance_threshold =  avg_min_distance * 2.0; 
 
   std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());

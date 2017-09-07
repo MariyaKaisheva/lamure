@@ -63,6 +63,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
                                      float min_distance,
                                      float max_distance,
+                                     float& out_avg_min_distance,
                                      std::string output_base_name,
                                      bool write_intermediate_results,
                                      bool use_nurbs = true, 

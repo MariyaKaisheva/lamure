@@ -70,6 +70,22 @@ int main(int argc, char** argv)
      min_distance = atof(io::get_cmd_option(argv, argv+argc, "--min")); //user input
     }
 
+    float red_channel_value = 0.0;
+    float green_channel_value = 0.0;
+    float blue_channel_value = 0.0;
+
+    if(io::cmd_option_exists(argv, argv+argc, "--red")){
+     red_channel_value = atof(io::get_cmd_option(argv, argv+argc, "--red")); //user input
+    }
+
+    if(io::cmd_option_exists(argv, argv+argc, "--green")){
+     green_channel_value = atof(io::get_cmd_option(argv, argv+argc, "--green")); //user input
+    }
+
+    if(io::cmd_option_exists(argv, argv+argc, "--blue")){
+     blue_channel_value = atof(io::get_cmd_option(argv, argv+argc, "--blue")); //user input
+    }
+
     bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
     bool apply_alpha_shapes = !io::cmd_option_exists(argv, argv + argc, "--no_alpha_shapes");
     bool spiral_look = io::cmd_option_exists(argv, argv + argc, "--generate_spirals");
@@ -84,12 +100,14 @@ int main(int argc, char** argv)
     output_quat.retrieve_axis_angle(angle, axis);
 
     std::string output_base_name = bvh_filename_without_path_and_extension
-                                         + "_d" + std::to_string(depth) //TODO fix name for leaf level
-                                         + "_angle_"  + std::to_string(angle);
+                                         + "_d"         + std::to_string(depth) //TODO fix name for leaf level
+                                         + "_angle_"    + std::to_string(angle)
+                                         + "_spirals_" + std::to_string(spiral_look);
 
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
                             write_intermediate_results, spiral_look,
                             output_base_name, min_distance, max_distance,
+                            red_channel_value, green_channel_value, blue_channel_value,
                             use_nurbs, apply_alpha_shapes, 
                             without_lod_adjustment, is_verbose);
 
