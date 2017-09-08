@@ -21,7 +21,6 @@ for arg in "${lamure_app_parameter_array[@]}"; do
     if [ $arg == "-t" ]; then
       echo "IGNORING '-t' FLAG"
     else
-      echo "WOULD LIKE TO ADD: $arg"
       base_command_to_execute="$base_command_to_execute $arg"
     fi
   fi
@@ -31,27 +30,20 @@ echo "rot array size: $rotation_array_size"
 
 echo "Base command to execute: $base_command_to_execute"
 
-echo "Parsed rotation files"
-for rotation_filename in "${rotation_file_array[@]}"; do
-  echo "$rotation_filename"
-done
-
 
 mkdir combined_files
 cd combined_files
 echo "" > combined_line_art_file.lob
 
-
 processing_iteration_counter=0
 for rotation_string in "${rotation_file_array[@]}"; do
  
   final_command_to_execute="$base_command_to_execute -t $rotation_string"
-  echo "EXECUTING FINAL COMMAND $final_command_to_execute"
+  echo "EXECUTING COMMAND $final_command_to_execute"
 
 
   command_output=`eval "$final_command_to_execute"`
 
-  echo "OUTPUT OF THE COMMAND: $command_output"
 
   output_lob_file=`echo "$command_output" | grep "lob"`
   echo "OUTPUT LOB FILENAME IN ITERATION: $output_lob_file"
