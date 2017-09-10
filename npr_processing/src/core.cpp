@@ -137,7 +137,7 @@ void
         std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
         start_writing_output = std::chrono::system_clock::now();
 
-        io::write_output( obj_filename, line_data, bvh);
+        io::write_output_obj( obj_filename, line_data, bvh);
 
         //write out lob file for lamure
         io::write_output_lob(lob_filename, line_data, bvh, out_avg_min_distance, red_channel_line, green_channel_line, blue_channel_line);
