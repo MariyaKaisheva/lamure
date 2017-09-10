@@ -5,12 +5,75 @@
 // Faculty of Media, Bauhaus-Universitaet Weimar
 // http://www.uni-weimar.de/medien/vr
 #include <lamure/npr/core.h>
+#include <random>
 
 using namespace npr;
 
 
+
+void generate_random_orthogonal_90_degree_orientations() {
+
+   std::random_device rd;
+   std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+   
+   std::uniform_real_distribution<> distribution_between_0_and_1(0.0, 1.0);
+   
+   double rand_x_axis_component = distribution_between_0_and_1(gen);
+   double rand_y_axis_component = distribution_between_0_and_1(gen);
+   double rand_z_axis_component = distribution_between_0_and_1(gen);
+
+    scm::math::vec3d random_rotation_axis{rand_x_axis_component,
+                                          rand_y_axis_component,
+                                          rand_z_axis_component};
+
+    //handle degenerated case
+    if(random_rotation_axis == scm::math::vec3d(0.0, 0.0, 0.0)) {
+        random_rotation_axis = scm::math::vec3d(1.0, 0.0, 0.0); 
+    }
+
+    random_rotation_axis = scm::math::normalize(random_rotation_axis);
+
+    // compute arbitrary tangent vectors (see surfel rendering code)
+    scm::math::vec3d ms_n = random_rotation_axis;
+    scm::math::vec3d tmp_ms_u = scm::math::vec3d(0.0, 0.0, 0.0);
+    if(random_rotation_axis[2] != 0.0) {
+      tmp_ms_u = scm::math::vec3d( 1.0, 1.0, (-random_rotation_axis[0] -random_rotation_axis[1])/random_rotation_axis[2]);
+    } else if (ms_n.y != 0.0) {
+      tmp_ms_u = scm::math::vec3d( 1.0, (-random_rotation_axis[0] -random_rotation_axis[2])/random_rotation_axis[1], 1.0);
+    } else {
+      tmp_ms_u = scm::math::vec3d( (-random_rotation_axis[1] -random_rotation_axis[2])/random_rotation_axis[0], 1.0, 1.0);
+    }
+
+
+  // assign tangent vectors
+  scm::math::vec3d ms_u = scm::math::normalize(tmp_ms_u);
+  scm::math::vec3d ms_v = scm::math::normalize(scm::math::cross(ms_n, ms_u));
+
+  std::ofstream rand_arbitrary_axis_file_0("rand_perp_axis_0.rot");
+  rand_arbitrary_axis_file_0 << "90.0 " << ms_n[0] << " " << ms_n[1] << " " << ms_n[2];
+  rand_arbitrary_axis_file_0.close();
+
+  std::ofstream rand_tangent_axis_file_1("rand_perp_axis_1.rot");
+  rand_tangent_axis_file_1 << "90.0 " << ms_u[0] << " " << ms_u[1] << " " << ms_u[2];
+  rand_tangent_axis_file_1.close();
+
+  std::ofstream rand_tangent_axis_file_2("rand_perp_axis_2.rot");
+  rand_tangent_axis_file_2 << "90.0 " << ms_v[0] << " " << ms_v[1] << " " << ms_v[2];
+  rand_tangent_axis_file_2.close();
+}
+
 int main(int argc, char** argv)
 {
+
+    bool generate_random_perpendicular_transformations = io::cmd_option_exists(argv, argv + argc, "--create_random_axes");
+    
+    if(generate_random_perpendicular_transformations) {
+      generate_random_orthogonal_90_degree_orientations();
+      std::cout << "\nSuccessfully created three random perpendicular transformation files: [rand_perp_axis_0.rot, rand_perp_axis_1.rot, rand_perp_axis_2.rot]\n";
+      std::cout << "Exiting.\n\n";
+      return 0;
+    }
+
     //input validation
     bool valid_input = io::check_user_input(argv, argc);
     if (argc == 1 || io::cmd_option_exists(argv, argv+argc, "-h") ||
@@ -19,6 +82,8 @@ int main(int argc, char** argv)
         io::print_help_message(argv);
         return 0;
     }
+
+
 
     //get input for point cloud model and corresponding rotaion file
     std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));

@@ -138,6 +138,8 @@ void parse_float_parameter(int argc, char** argv, float& float_parameter, std::s
 	//options_with_descriptions_vec.emplace("--apply_alpha_shapes",  ": (optional) set flag for alpha-shaped to TRUE");
 	options_with_descriptions_vec.emplace("--write_stages",        ": (optional) set flag writing out intermediate results to TRUE");
 	options_with_descriptions_vec.emplace("--generate_spirals",    ": (optional) set flag for spiral look to TRUE");
+
+	options_with_descriptions_vec.emplace("--create_random_axes",  ": (optional) creates three perpendicular axes based on a random drawing and exits the program");
 }
 
 
