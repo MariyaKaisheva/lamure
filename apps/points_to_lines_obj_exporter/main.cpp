@@ -9,11 +9,6 @@
 using namespace npr;
 
 
-
-void parse_input_parameters() {
-
-}
-
 int main(int argc, char** argv)
 {
     //input validation
