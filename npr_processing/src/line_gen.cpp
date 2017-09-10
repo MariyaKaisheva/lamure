@@ -72,7 +72,7 @@ void rotate(clusters_t & point_cluster) {
 }
 
 
-gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, uint8_t degree, bool is_verbose){
+gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, uint8_t degree, bool spiral_look, bool is_verbose){
  //coppy cluster content to vector of control points
   std::vector<gpucast::math::point3d> control_points_vec(ordered_points.size());
   
@@ -88,8 +88,11 @@ gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, 
 
 
    //connect first to last segment
-   //auto first_point = control_points_vec[0];
-   //control_points_vec.push_back(first_point);
+  if(!spiral_look){
+    auto first_point = control_points_vec[0];
+    control_points_vec.push_back(first_point);
+  }
+
 
   //generate knot vector
   std::vector<double> knot_vec;
@@ -153,7 +156,7 @@ std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d & nurbs_curve, bool
     working_stack.push(j_0);
  
 
-    float error_threshold = 0.001;
+    float error_threshold = 0.0001;
     while(!working_stack.empty()){
       //std::cout << "still in the loop! stack size: " << working_stack.size() << "\n";
       auto current_job = working_stack.top();
@@ -285,7 +288,7 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
   }
 
 
-
+  bool spiral_look = true;
   nurbs_vec_t final_spiral_segments_vec;
   for(uint8_t curve_index = 0; curve_index < spiral_basis_nurbs_vec.size() - 1; ++curve_index){
 
@@ -298,7 +301,8 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
     control_points_vec.insert(control_points_vec.end(), new_control_points.begin(), new_control_points.end());
 
     //std::cout << "SIZE OF CONTROL POINTS VEC: " << control_points_vec.size() << "\n";
-    auto final_spiral_curve = fit_curve(control_points_vec, 3, false);
+
+    auto final_spiral_curve = fit_curve(control_points_vec, 3, spiral_look, false);
 
     //std::cout << "GENERATED FINAL SPIRAL CURVE\n";
     final_spiral_curve.print(std::cout);
@@ -316,6 +320,7 @@ bool with_detailed_prints = false;  //TODO clean print logic
 
 void prepare_clusters (std::vector<binning::bin> & bins_vec, 
                        std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
+                       float eps_factor,
                        uint32_t num_cells_pro_dim,
                        bool is_verbose){
 
@@ -331,7 +336,7 @@ void prepare_clusters (std::vector<binning::bin> & bins_vec,
         }
 
         //set parameters for DBSCAN
-        float eps = avg_min_distance_per_bin * 10.0; // radis of search area
+        float eps = avg_min_distance_per_bin * eps_factor; // radis of search area
         uint8_t minPoints = 3; //minimal number of data points that should be located inside search ared
 
         //generate clusters
@@ -406,6 +411,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                float& out_avg_min_distance,
                std::string output_base_name,
                bool write_intermediate_result_out,
+               float eps_factor,
                bool use_nurbs, bool apply_alpha_shapes,
                bool spiral_look, bool is_verbose){
 
@@ -455,6 +461,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::vector< std::shared_ptr<std::vector<clusters_t>> > all_clusters_per_bin_vector_for_all_bins(bins_vec.size());
   prepare_clusters(bins_vec, 
                    all_clusters_per_bin_vector_for_all_bins,
+                   eps_factor,
                    num_cells_pro_dim,
                    is_verbose);
 
@@ -547,7 +554,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     nurbs_vec_t guiding_nurbs_per_layer;
     std::vector<std::vector<line>> lines_per_alpha_shape_in_current_bin;
     for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
-      auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, false);
+      auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, spiral_look, false);
       
       lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
       //std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);

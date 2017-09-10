@@ -17,6 +17,7 @@ void
                    float red_channel_line,
                    float green_channel_line,
                    float blue_channel_line,
+                   float eps_factor,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
                    bool without_lod_adjustment,
@@ -88,16 +89,23 @@ void
 
         
         //validate input 
-        if(min_distance < 0 || max_distance < 0){
-            auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose);
+        if(min_distance < 0 ){
+            auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose); //TOFO remove unused bool param
             min_distance = suggested_distance_thresholds.first;
+
+        }
+
+        if(max_distance < 0){
+            auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose);
             max_distance = suggested_distance_thresholds.second;
+
+        }
+
             if(is_verbose){
                 std::cout << "\t min_distance: " << min_distance << "\n";
                 std::cout << "\t max_distance: " << max_distance << "\n";
                 std::cout << "----------------------------\n";
             }
-        }
 
         float out_avg_min_distance = -1.0f;
         auto line_data =  line_gen::generate_lines(surfels_vector,
@@ -105,6 +113,7 @@ void
                                                    out_avg_min_distance,
                                                    output_base_name, //used to write out intermediate stages
                                                    write_intermediate_results,
+                                                   eps_factor,
                                                    use_nurbs, apply_alpha_shapes,
                                                    spiral_look, is_verbose);
 

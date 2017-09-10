@@ -36,7 +36,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
 
     void rotate(clusters_t & point_cluster);
 
-    gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, uint8_t degree, bool is_verbose);
+    gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, uint8_t degree,  bool spiral_look, bool is_verbose);
 
     //std::vector<line> generate_lines_from_curve (std::vector<point> const& ordered_points, uint8_t degree = 3, bool is_verbose = false);
 
@@ -66,6 +66,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
                                      float& out_avg_min_distance,
                                      std::string output_base_name,
                                      bool write_intermediate_results,
+                                     float eps_factor = 10.0,
                                      bool use_nurbs = true, 
                                      bool apply_alpha_shapes = true,
                                      bool spiral_look = false,

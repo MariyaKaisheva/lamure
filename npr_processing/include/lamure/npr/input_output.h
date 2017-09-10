@@ -18,12 +18,15 @@
 namespace npr {
 namespace io {
 
+
+
 	struct stage_content_storage{
 
 		std::vector<binning::bin> binns_;
 		std::vector< std::shared_ptr<std::vector<clusters_t>> > clusters_;
 		std::vector<std::vector< std::shared_ptr<std::vector<point> > > > alpha_shapes_;
 	};
+
 
 	inline char* get_cmd_option(char** begin, char** end, const std::string & option) {
 	    char** it = std::find(begin, end, option);
@@ -32,8 +35,91 @@ namespace io {
 	    return 0;
 	}
 
+	inline std::string create_output_base_name(std::string const& base_name_without_path_and_extension, int32_t bvh_depth, 
+	                                    	   float rot_angle, scm::math::vec3d const& rot_axis,
+	                                    	   bool spiral_look, 
+	                                    	   float min_bin_distance, float max_bin_distance, 
+	                                    	   float DBSCAN_epsilon )  {
+
+	    auto reset_stringstream = [] (std::stringstream& strstr_to_reset) {
+	        strstr_to_reset.str( std::string() );
+	        strstr_to_reset.clear();
+	    };
+
+	    std::string output_base_name = base_name_without_path_and_extension;
+
+	    std::stringstream conversion_strstr;
+	    conversion_strstr << std::fixed << std::setprecision(2) << rot_angle;
+	    std::string fixed_precision_angle_string;
+	    conversion_strstr >> fixed_precision_angle_string;
+
+	    reset_stringstream(conversion_strstr);
+	    conversion_strstr << std::fixed << std::setprecision(2) << rot_axis[0];
+	    std::string fixed_precision_rot_axis_x_string;
+	    conversion_strstr >> fixed_precision_rot_axis_x_string;
+
+	    reset_stringstream(conversion_strstr);
+	    conversion_strstr.clear();
+	    conversion_strstr << std::fixed << std::setprecision(2) << rot_axis[1];
+	    std::string fixed_precision_rot_axis_y_string;
+	    conversion_strstr >> fixed_precision_rot_axis_y_string;
+
+	    reset_stringstream(conversion_strstr);
+	    conversion_strstr << std::fixed << std::setprecision(2) << rot_axis[2];
+	    std::string fixed_precision_rot_axis_z_string;
+	    conversion_strstr >> fixed_precision_rot_axis_z_string;
+
+	    reset_stringstream(conversion_strstr);
+	    conversion_strstr << std::fixed << std::setprecision(2) << DBSCAN_epsilon;
+	    std::string fixed_precision_epsilon_string;
+	    conversion_strstr >> fixed_precision_epsilon_string;
+
+
+	    output_base_name +=   "_d"         + std::to_string(bvh_depth) //TODO fix name for leaf level
+	                        + "_angle_"    + fixed_precision_angle_string
+	                        + "_Ax_"       + fixed_precision_rot_axis_x_string
+	                        + "_Ay_"       + fixed_precision_rot_axis_y_string
+	                        + "_Az_"       + fixed_precision_rot_axis_z_string
+	                        + "_eps_"      + fixed_precision_epsilon_string;
+
+
+	    if( !(min_bin_distance < 0) ) {
+	    reset_stringstream(conversion_strstr);
+	        conversion_strstr << std::fixed << std::setprecision(2) << min_bin_distance;
+	        std::string fixed_precision_min_distance_string;
+	        conversion_strstr >> fixed_precision_min_distance_string;
+	        output_base_name += "_min_"      + fixed_precision_min_distance_string;
+	  
+	    }
+	    
+	    if( !(max_bin_distance < 0) ) {
+	    reset_stringstream(conversion_strstr);
+	        conversion_strstr << std::fixed << std::setprecision(2) << max_bin_distance;
+	        std::string fixed_precision_max_distance_string;
+	        conversion_strstr >> fixed_precision_max_distance_string;
+	        output_base_name += "_max_"      + fixed_precision_max_distance_string;
+	    }
+
+	    output_base_name += "_s"  + std::to_string(spiral_look);
+
+	    return output_base_name;
+	}
+
 	inline bool cmd_option_exists(char** begin, char** end, const std::string& option) {
 	    return std::find(begin, end, option) != end;
+	}
+
+
+	inline void parse_float_parameter(int argc, char** argv, float& float_parameter, std::string const& parameter_name ) {
+	    if(io::cmd_option_exists(argv, argv+argc, parameter_name)){
+	     float_parameter = atof(io::get_cmd_option(argv, argv+argc, parameter_name)); //user input
+	    }
+	}
+
+	inline void parse_int_parameter(int argc, char** argv, int& int_parameter, std::string const& parameter_name ) {
+	    if(io::cmd_option_exists(argv, argv+argc, parameter_name)){
+	     int_parameter = atof(io::get_cmd_option(argv, argv+argc, parameter_name)); //user input
+	    }
 	}
 
 	inline void prepare_options_with_descriptions(std::map<std::string, std::string>& options_with_descriptions_vec){
@@ -46,6 +132,7 @@ namespace io {
 		options_with_descriptions_vec.emplace("--red", 				   ": (optional) set color value (float: 0.0 - 1.0) for red channel of lines");
 		options_with_descriptions_vec.emplace("--green", 			   ": (optional) set color value (float: 0.0 - 1.0) for green channel of lines");
 		options_with_descriptions_vec.emplace("--blue", 			   ": (optional) set color value (float: 0.0 - 1.0) for blue channel of lines");
+		options_with_descriptions_vec.emplace("--eps",                 ": (optional) set value for DBSCAN epsylon paramerter");
 		options_with_descriptions_vec.emplace("--min",                 ": (optional) set value for the minimal distance between 2 layers");
 		options_with_descriptions_vec.emplace("--max",                 ": (optional) set value for the maximal distance between 2 layers");
 		//options_with_descriptions_vec.emplace("--no_reduction",        ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
@@ -119,7 +206,7 @@ namespace io {
 		std::ofstream output_file(output_filename);
 
 		if(output_file.is_open()){
-			output_file <<"o testPOB" << std::endl;
+			//output_file <<"o testPOB" << std::endl;
 			uint32_t current_cluster_id = 0;
 			uint32_t current_bin_id = 0;
 			int32_t current_cluster_color_id = -1;
@@ -128,7 +215,7 @@ namespace io {
 				auto const& all_clusters_per_bin_vector = all_clusters_per_bin_vector_for_all_slices[bin_index];
 				++current_bin_id;
 				for(uint32_t cluster_index = 0; cluster_index < all_clusters_per_bin_vector->size(); ++cluster_index){
-					
+					output_file << "o line_object_" << current_cluster_id << "\n";
 					if(binning){
 						current_cluster_color_id = id_to_color_hash(current_bin_id % 2);
 					}else{
@@ -151,8 +238,8 @@ namespace io {
 					}
 
 				}
+	          
 			}
-
 		}
 		output_file.close();
 	}

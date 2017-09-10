@@ -363,6 +363,7 @@ namespace utils {
 		void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat);
 
 		std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose);
+		std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose);
 
 } //utils
 } //npr

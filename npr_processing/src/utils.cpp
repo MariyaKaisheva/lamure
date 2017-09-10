@@ -121,5 +121,9 @@ namespace utils {
 		return std::make_pair(min_distance_between_two_bins, max_distance_between_two_bins);
 	}
 
+	std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose){
+		std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
+	}
+
 } //namespace utils
 } //namespace npr

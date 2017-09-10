@@ -8,6 +8,12 @@
 
 using namespace npr;
 
+
+
+void parse_input_parameters() {
+
+}
+
 int main(int argc, char** argv)
 {
     //input validation
@@ -48,67 +54,60 @@ int main(int argc, char** argv)
       depth = atoi(io::get_cmd_option(argv, argv+argc, "-d"));
     }
 
-    //bool write_obj_file = !io::cmd_option_exists(argv, argv + argc, "--write_xyz_points");
-
+    //parse intermediate stage enabling
     bool write_intermediate_results = io::cmd_option_exists(argv, argv + argc, "--write_stages");
 
+    //parse verbosity parameters
     bool is_verbose_option_1 = io::cmd_option_exists(argv, argv + argc, "--verbose");
     bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
     bool is_verbose = is_verbose_option_1 | is_verbose_option_2;
 
     bool without_lod_adjustment = io::cmd_option_exists(argv, argv + argc, "--no_reduction");
 
-    //TODO: make these parameters model dependent
+    //parse bin-distance related parameters (default: estimated later)
     float min_distance = -1.0;
     float max_distance = -1.0;
+    io::parse_float_parameter(argc, argv, min_distance, "--min");
+    io::parse_float_parameter(argc, argv, max_distance, "--max");
 
-    if(io::cmd_option_exists(argv, argv+argc, "--max")){
-     max_distance = atof(io::get_cmd_option(argv, argv+argc, "--max")); //user input
-    }
+    //parse DBSCan eps_factor (default: 10)
+    float eps_factor = 10.0;
+    io::parse_float_parameter(argc, argv, eps_factor, "--eps");
 
-    if(io::cmd_option_exists(argv, argv+argc, "--min")){
-     min_distance = atof(io::get_cmd_option(argv, argv+argc, "--min")); //user input
-    }
-
+    //parse line-color related parameters (default: black)
     float red_channel_value = 0.0;
     float green_channel_value = 0.0;
     float blue_channel_value = 0.0;
 
-    if(io::cmd_option_exists(argv, argv+argc, "--red")){
-     red_channel_value = atof(io::get_cmd_option(argv, argv+argc, "--red")); //user input
-    }
+    io::parse_float_parameter(argc, argv, red_channel_value, "--red");
+    io::parse_float_parameter(argc, argv, green_channel_value, "--green");
+    io::parse_float_parameter(argc, argv, blue_channel_value, "--blue");
 
-    if(io::cmd_option_exists(argv, argv+argc, "--green")){
-     green_channel_value = atof(io::get_cmd_option(argv, argv+argc, "--green")); //user input
-    }
-
-    if(io::cmd_option_exists(argv, argv+argc, "--blue")){
-     blue_channel_value = atof(io::get_cmd_option(argv, argv+argc, "--blue")); //user input
-    }
 
     bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
     bool apply_alpha_shapes = !io::cmd_option_exists(argv, argv + argc, "--no_alpha_shapes");
     bool spiral_look = io::cmd_option_exists(argv, argv + argc, "--generate_spirals");
     
-    std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
-    std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
-
+    //retrieve rotation axis and angle
     scm::math::quat<double> output_quat;
     output_quat = scm::math::quat<double>::from_matrix(scm::math::mat4d(user_defined_rot_mat));
     double angle; 
     scm::math::vec3d axis; 
     output_quat.retrieve_axis_angle(angle, axis);
 
-    std::string output_base_name = bvh_filename_without_path_and_extension
-                                         + "_d"         + std::to_string(depth) //TODO fix name for leaf level
-                                         + "_angle_"    + std::to_string(angle)
-                                         + "_spirals_" + std::to_string(spiral_look);
+    //get model related path names
+    std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
+    std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
 
+    //retrieve the name for the model creation based on the parameters
+    std::string output_base_name = npr::io::create_output_base_name(bvh_filename_without_path_and_extension, depth, angle, axis, spiral_look, min_distance, max_distance, eps_factor );
+
+    //call to the actual line art creation npr-library function
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
                             write_intermediate_results, spiral_look,
                             output_base_name, min_distance, max_distance,
                             red_channel_value, green_channel_value, blue_channel_value,
-                            use_nurbs, apply_alpha_shapes, 
+                            eps_factor, use_nurbs, apply_alpha_shapes, 
                             without_lod_adjustment, is_verbose);
 
     return 0;
