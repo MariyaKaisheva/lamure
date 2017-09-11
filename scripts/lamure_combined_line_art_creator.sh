@@ -6,6 +6,8 @@ echo "Number of Parameters $#"
 
 base_command_to_execute=""
 
+use_random_transformations=0
+
 rotation_array_size=0
 for arg in "${lamure_app_parameter_array[@]}"; do
   echo "$arg"
@@ -21,12 +23,15 @@ for arg in "${lamure_app_parameter_array[@]}"; do
     if [ $arg == "-t" ]; then
       echo "IGNORING '-t' FLAG"
     else
-      base_command_to_execute="$base_command_to_execute $arg"
+      if [ $arg == "--random_transformations" ]; then
+        use_random_transformations=1
+      else
+        base_command_to_execute="$base_command_to_execute $arg"
+      fi
     fi
   fi
 done
 
-echo "rot array size: $rotation_array_size"
 
 echo "Base command to execute: $base_command_to_execute"
 
@@ -34,6 +39,18 @@ echo "Base command to execute: $base_command_to_execute"
 mkdir combined_files
 cd combined_files
 echo "" > combined_line_art_file.lob
+
+if [ "$use_random_transformations" -eq 1 ]
+then
+  eval "$base_command_to_execute --create_random_axes"
+  echo "USING 3 RANDOM PERPENDICULAR ROTATION AXES"
+
+  rotation_file_array=($(echo "rand_perp_axis_0.rot rand_perp_axis_1.rot rand_perp_axis_2.rot"))
+  rotation_array_size=3
+fi
+
+
+echo "rot array size: $rotation_array_size"
 
 processing_iteration_counter=0
 for rotation_string in "${rotation_file_array[@]}"; do
@@ -54,5 +71,8 @@ for rotation_string in "${rotation_file_array[@]}"; do
   echo ""
   echo ""  
 done
+
+date_time_stamp=$(date)
+mv combined_line_art_file.lob "$date_time_stamp combined_line_art_file.lob"
 
 cd ..
