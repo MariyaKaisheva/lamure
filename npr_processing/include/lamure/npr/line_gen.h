@@ -65,6 +65,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
                                      float max_distance,
                                      float& out_avg_min_distance,
                                      std::string output_base_name,
+                                     scm::math::mat4f const& transformation_mat,
                                      bool write_intermediate_results,
                                      float eps_factor = 10.0,
                                      bool use_nurbs = true, 

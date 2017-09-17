@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <limits>
+#include <memory>
 
 	//general structs
 	struct xyzall_surfel_t {
@@ -159,6 +160,9 @@ namespace utils {
 
 	//transform line vector vertices to by provided transformation matrix
 	void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat);
+
+	void transform_intermediate_points_to_original_model_orientation(std::vector< std::shared_ptr<std::vector<std::vector<point>>> > & all_points_for_all_bins,
+																	 scm::math::mat4f const& transformation_mat);
 
 
 } //utils

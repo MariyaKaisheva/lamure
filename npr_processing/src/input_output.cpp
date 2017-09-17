@@ -180,7 +180,23 @@ scm::math::mat4f read_in_transformation_file(std::string input_filename){
  void write_intermediate_result_out(std::string output_filename,
 										  float avg_min_distance,
 										  std::vector< std::shared_ptr<std::vector<clusters_t>> > const& all_clusters_per_bin_vector_for_all_slices,
+                      scm::math::mat4f const& transformation_mat,
 										  bool binning){
+
+  uint32_t const outer_vector_size = all_clusters_per_bin_vector_for_all_slices.size();
+
+  std::vector< std::shared_ptr<std::vector<clusters_t>> > deep_copied_all_clusters_per_bin_vector_for_all_slices(outer_vector_size);
+
+  for( uint32_t bin_vector_id = 0; bin_vector_id < outer_vector_size; ++bin_vector_id) {
+
+    deep_copied_all_clusters_per_bin_vector_for_all_slices[bin_vector_id] = std::make_shared< std::vector<clusters_t> >( *(all_clusters_per_bin_vector_for_all_slices[bin_vector_id])  );
+    //*(deep_copied_all_clusters_per_bin_vector_for_all_slices[bin_vector_id]) = *(all_clusters_per_bin_vector_for_all_slices[bin_vector_id]);
+  }
+
+  //auto all_clusters_per_bin_vector_for_all_slices_transformed = all_clusters_per_bin_vector_for_all_slices;
+  utils::transform_intermediate_points_to_original_model_orientation(deep_copied_all_clusters_per_bin_vector_for_all_slices,
+                                                                    transformation_mat);
+
 
 	std::ofstream output_file(output_filename);
 
@@ -190,8 +206,8 @@ scm::math::mat4f read_in_transformation_file(std::string input_filename){
 		uint32_t current_bin_id = 0;
 		int32_t current_cluster_color_id = -1;
 		float thickness = avg_min_distance * 0.25f;
-		for (uint32_t bin_index = 0; bin_index < all_clusters_per_bin_vector_for_all_slices.size(); ++bin_index){
-			auto const& all_clusters_per_bin_vector = all_clusters_per_bin_vector_for_all_slices[bin_index];
+		for (uint32_t bin_index = 0; bin_index < deep_copied_all_clusters_per_bin_vector_for_all_slices.size(); ++bin_index){
+			auto const& all_clusters_per_bin_vector = deep_copied_all_clusters_per_bin_vector_for_all_slices[bin_index];
 			++current_bin_id;
 			for(uint32_t cluster_index = 0; cluster_index < all_clusters_per_bin_vector->size(); ++cluster_index){
 				output_file << "o line_object_" << current_cluster_id << "\n";

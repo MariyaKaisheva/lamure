@@ -318,6 +318,38 @@ namespace utils {
 		}
 	}
 
+	void transform_intermediate_points_to_original_model_orientation(std::vector< std::shared_ptr<std::vector<std::vector<point>>> > & all_points_for_all_bins,
+																	 scm::math::mat4f const& transformation_mat) {
+
+	    uint32_t num_bins = all_points_for_all_bins.size();
+
+	    //#pragma omp parallel for
+	    for(uint32_t bin_idx = 0; bin_idx < num_bins; ++bin_idx){
+	    	auto& current_bin = all_points_for_all_bins[bin_idx];
+	    	uint32_t num_clusters = current_bin->size();
+
+		    for(uint32_t cluster_idx = 0; cluster_idx < num_clusters; ++cluster_idx){
+		    	auto& current_cluster = (*current_bin)[cluster_idx];
+
+			    uint32_t num_clusters_in_current_bin = current_cluster.size();
+			    for(uint32_t point_idx = 0; point_idx < num_clusters_in_current_bin; ++point_idx) {
+					auto& current_point = current_cluster[point_idx];
+					scm::math::vec4f inital_point_coord = scm::math::vec4f(current_point.pos_coordinates_[0],
+																		   current_point.pos_coordinates_[1],
+																		   current_point.pos_coordinates_[2], 
+																		   1.0f);
+
+					scm::math::vec4f transformed_start = transformation_mat * inital_point_coord;
+
+					current_point.pos_coordinates_[0] = transformed_start[0];
+					current_point.pos_coordinates_[1] = transformed_start[1];
+					current_point.pos_coordinates_[2] = transformed_start[2];
+				}
+			}
+		}
+
+	}
+
 	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose){
 
 		/*std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
@@ -356,9 +388,9 @@ namespace utils {
 		return std::make_pair(min_distance_between_two_bins, max_distance_between_two_bins);
 	}
 
-	std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose){
+	/*std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose){
 		std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
-	}
+	}*/
 
 } //namespace utils
 } //namespace npr

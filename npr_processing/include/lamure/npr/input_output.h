@@ -59,6 +59,7 @@ namespace io {
 	void write_intermediate_result_out(std::string output_filename,
 										float avg_min_distance,
 										std::vector< std::shared_ptr<std::vector<clusters_t>> > const& all_clusters_per_bin_vector_for_all_slices,
+										scm::math::mat4f const& transformation_mat,
 										bool binning = false);
 
 	//writes an *.obj file with the final result that contains degenerated triangles to be seen as lines

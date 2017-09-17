@@ -112,6 +112,7 @@ void
                                                    min_distance, max_distance,
                                                    out_avg_min_distance,
                                                    output_base_name, //used to write out intermediate stages
+                                                   user_defined_rot_mat,
                                                    write_intermediate_results,
                                                    eps_factor,
                                                    use_nurbs, apply_alpha_shapes,
@@ -124,7 +125,9 @@ void
         //transform data again to return to the original model orientation
         std::chrono::time_point<std::chrono::system_clock> start_inverse_rotation, end_inverse_rotation;
         start_inverse_rotation = std::chrono::system_clock::now();
+
         utils::transform(line_data, user_defined_rot_mat);
+
         end_inverse_rotation = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds_inverse_rotation = end_inverse_rotation - start_inverse_rotation;
 

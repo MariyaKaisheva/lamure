@@ -245,6 +245,7 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   auto bottom_curve_y = bottom_curve.evaluate(evaluation_offset)[1];
 
   uint32_t windings = std::ceil(std::fabs(top_curve_y - bottom_curve_y) / max_distance);
+  //uint32_t const windings = 1;
   std::cout << "distance: " << top_curve_y - bottom_curve_y << std::endl;
   std::cout << "max_distance: " << max_distance << std::endl;
   std::cout << "Num windings: " << windings << std::endl;
@@ -410,6 +411,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
                float min_distance, float max_distance,
                float& out_avg_min_distance,
                std::string output_base_name,
+               scm::math::mat4f const& transformation_mat,
                bool write_intermediate_result_out,
                float eps_factor,
                bool use_nurbs, bool apply_alpha_shapes,
@@ -421,8 +423,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   uint32_t last_el = input_data.size() - 1;
 
   auto model_height = std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
-  std::cout <<"!!!! Min Y from input data " <<input_data[0].pos_coordinates[1] << " Max Y from input data " << input_data[last_el].pos_coordinates[1] << std::endl;
-  std::cout <<"!!!! Initial min distance " << min_distance << " +  model_height " << model_height << std::endl;
+  std::cout <<" Min Y from input data " <<input_data[0].pos_coordinates[1] << " Max Y from input data " << input_data[last_el].pos_coordinates[1] << std::endl;
+  std::cout <<"---> Initial min distance " << min_distance << " +  model_height " << model_height << std::endl;
 
  
   uint32_t max_num_line_loops = std::floor(model_height / min_distance);
@@ -485,9 +487,11 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   if(write_intermediate_result_out){
     bool use_binning_coloring = true;
     io::write_intermediate_result_out(output_base_name + "_BINNING.pob",
-                                      avg_min_distance, 
-                                      all_clusters_per_bin_vector_for_all_bins, 
+                                      avg_min_distance,
+                                      all_clusters_per_bin_vector_for_all_bins,
+                                      transformation_mat,
                                       use_binning_coloring);
+    std::cout << "Done with BINNING\n";
   }
 
 
@@ -511,8 +515,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
   if(write_intermediate_result_out){      
     io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
-                                      avg_min_distance, 
-                                      all_clusters_per_bin_vector_for_all_bins);
+                                      avg_min_distance,
+                                      all_clusters_per_bin_vector_for_all_bins,
+                                      transformation_mat);
+    std::cout << "Done with CLUSTERING\n";
   }
 
 
@@ -534,9 +540,9 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   if(write_intermediate_result_out){
     io::write_intermediate_result_out(output_base_name + "_ALPHA_SHAPES.pob",
                                 avg_min_distance, 
-                                all_alpha_shapes_for_all_bins);
-
-    std::cout << "ALPHA_SHAPES\n";
+                                all_alpha_shapes_for_all_bins,
+                                transformation_mat);
+    std::cout << "Done with ALPHA_SHAPES\n";
   }
 
   std::vector< std::shared_ptr< std::vector<std::vector<line>> >> lines_for_all_bins(all_alpha_shapes_for_all_bins.size());
@@ -557,9 +563,6 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, spiral_look, false);
       
       lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
-      //std::vector<line> line_data_from_sampled_curve = evaluate_curve(cluster_approximating_curve, true);
-      //line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
-
       guiding_nurbs_per_layer.push_back(cluster_approximating_curve);
     }
 
