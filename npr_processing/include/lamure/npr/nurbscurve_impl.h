@@ -113,26 +113,36 @@ namespace math {
   template<typename point_t>
   inline point_t nurbscurve<point_t>::evaluate(value_type const& t) const
   {
-    auto N =  evaluate_basis_function(t);
 
-    point_t enumerator;
-    enumerator.weight(0);
-    value_type denominator = 0;
+    if(t <= 0.0){
+      return  _points[0];
+    }else if(t >= 1.0){
+      auto last_position = _points.size() - 1; 
+      return _points[last_position];
+    }else{
+      auto N =  evaluate_basis_function(t);
 
-    for (size_t i = 0; i != _points.size(); ++i) {
-      auto tmp = _points[i];
-      tmp.weight(1.0);
-      enumerator += N[i] * _points[i].weight() * tmp;
-      denominator += N[i] * _points[i].weight();
+      point_t enumerator;
+      enumerator.weight(0);
+      value_type denominator = 0;
+
+      for (size_t i = 0; i != _points.size(); ++i) {
+        auto tmp = _points[i];
+        tmp.weight(1.0);
+        enumerator += N[i] * _points[i].weight() * tmp;
+        denominator += N[i] * _points[i].weight();
+      }
+       
+      return enumerator / denominator;
     }
-     
-    return enumerator / denominator;
+
   }
 
   //////////////////////////////////////////////////////////////////////////////
   template<typename point_t>
   inline std::vector<typename nurbscurve<point_t>::value_type> nurbscurve<point_t>::evaluate_basis_function(typename nurbscurve<point_t>::value_type const& t) const
   {
+
     struct scalar_field_2d {
       scalar_field_2d(size_t rows, size_t cols) 
       {

@@ -131,7 +131,7 @@ std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d & nurbs_curve, bool
   //sample the curve inside the knot span
   std::vector<line> line_segments_vec;
   
-  float evaluation_offset = 0.0001;
+  float evaluation_offset = 0.00;
 
  if(dynamic_sampling_step){ //dynamic sampling step parameter
   //intial points
@@ -237,12 +237,15 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   top_curve.normalize_knotvector();
   bottom_curve.normalize_knotvector();
   uint32_t num_points_per_winding = 100;
-  float evaluation_offset = 0.00001;
+  //float evaluation_offset = 0.00001;
 
   //both curves have constat y-coordinate value at any sampling position 
   //height (y-coordinate) between the 2 curves gives is used to calculate mun windings 
-  auto top_curve_y = top_curve.evaluate(evaluation_offset)[1];
-  auto bottom_curve_y = bottom_curve.evaluate(evaluation_offset)[1];
+  //auto top_curve_y = top_curve.evaluate(evaluation_offset)[1];
+  //auto bottom_curve_y = bottom_curve.evaluate(evaluation_offset)[1];
+
+  auto top_curve_y = top_curve.evaluate(1.0)[1];
+  auto bottom_curve_y = bottom_curve.evaluate(1.0)[1];
 
   uint32_t windings = std::ceil(std::fabs(top_curve_y - bottom_curve_y) / max_distance);
   //uint32_t const windings = 1;
@@ -253,19 +256,19 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   float sampling_step = (1.0) / num_points_per_winding;
   uint32_t num_blending_points = num_points_per_winding * windings;
 
-  std::vector<point> blended_points(num_blending_points);
+  std::vector<point> blended_points(num_blending_points + 1);
 
   #pragma omp parallel for
-  for (uint32_t point_counter = 0; point_counter < num_blending_points; ++point_counter){
+  for (uint32_t point_counter = 0; point_counter <= num_blending_points; ++point_counter){
 
-    float accumulated_t = point_counter * sampling_step + evaluation_offset;
+    float accumulated_t = point_counter * sampling_step; // + evaluation_offset;
 
     float fractional_of_accumulated_t = std::fmod(accumulated_t, 1.0);
-    float sampling_parameter_t = std::max(evaluation_offset, fractional_of_accumulated_t);
+    float sampling_parameter_t = fractional_of_accumulated_t; //std::max(evaluation_offset, fractional_of_accumulated_t);
 
     float blend_parameter = accumulated_t / float(windings);
 
-    map_to_normalized_range(blend_parameter, evaluation_offset / windings, (windings + evaluation_offset) / windings );
+    //map_to_normalized_range(blend_parameter, evaluation_offset / windings, (windings + evaluation_offset) / windings );
 
     auto top_curve_sample = top_curve.evaluate(sampling_parameter_t);
     auto bottom_curve_sample = bottom_curve.evaluate(sampling_parameter_t); 
