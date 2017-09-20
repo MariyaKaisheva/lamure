@@ -20,7 +20,6 @@ void
                    float eps_factor,
                    bool use_nurbs,
                    bool apply_alpha_shapes,
-                   bool without_lod_adjustment,
                    bool is_verbose)
     {
 
@@ -101,7 +100,7 @@ void
 
         }
 
-            if(is_verbose){
+            if(/*is_verbose*/ true){
                 std::cout << "\t min_distance: " << min_distance << "\n";
                 std::cout << "\t max_distance: " << max_distance << "\n";
                 std::cout << "----------------------------\n";
@@ -117,6 +116,9 @@ void
                                                    eps_factor,
                                                    use_nurbs, apply_alpha_shapes,
                                                    spiral_look, is_verbose);
+
+        std::cout << "!!! EPS: " << eps_factor << "\n"; 
+
 
         if(is_verbose) {
             std::cout << "Num generated lines: " << line_data.size() << "\n";
@@ -140,7 +142,10 @@ void
         std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
         start_writing_output = std::chrono::system_clock::now();
 
-        io::write_output_obj( obj_filename, line_data, bvh);
+        if(write_intermediate_results){ //TODO change control variable
+          io::write_output_obj( obj_filename, line_data, bvh);
+        }
+        
 
         //write out lob file for lamure
         io::write_output_lob(lob_filename, line_data, bvh, out_avg_min_distance, red_channel_line, green_channel_line, blue_channel_line);

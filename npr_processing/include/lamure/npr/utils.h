@@ -136,7 +136,7 @@ namespace utils {
 	float dot(lamure::vec3f const& vec_A, lamure::vec3f const& vec_B);
 
 	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose);
-	std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose);
+	//std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose);
 
 	//find cells intersected by a 3D sphere
 	void find_candidate_cells(std::vector<grid_cell>& all_cells, const float* sphere_origin, float radius, std::vector<grid_cell*>& out_candidates);

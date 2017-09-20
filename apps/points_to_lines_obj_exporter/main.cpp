@@ -122,7 +122,7 @@ int main(int argc, char** argv)
     bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
     bool is_verbose = is_verbose_option_1 | is_verbose_option_2;
 
-    bool without_lod_adjustment = io::cmd_option_exists(argv, argv + argc, "--no_reduction");
+    //bool without_lod_adjustment = io::cmd_option_exists(argv, argv + argc, "--no_reduction");
 
     //parse bin-distance related parameters (default: estimated later)
     float min_distance = -1.0;
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
                             output_base_name, min_distance, max_distance,
                             red_channel_value, green_channel_value, blue_channel_value,
                             eps_factor, use_nurbs, apply_alpha_shapes, 
-                            without_lod_adjustment, is_verbose);
+                            is_verbose);
 
     return 0;
 }

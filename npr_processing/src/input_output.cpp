@@ -132,10 +132,7 @@ void parse_float_parameter(int argc, char** argv, float& float_parameter, std::s
 	options_with_descriptions_vec.emplace("--eps",                 ": (optional) set value for DBSCAN epsylon paramerter");
 	options_with_descriptions_vec.emplace("--min",                 ": (optional) set value for the minimal distance between 2 layers");
 	options_with_descriptions_vec.emplace("--max",                 ": (optional) set value for the maximal distance between 2 layers");
-	//options_with_descriptions_vec.emplace("--no_reduction",        ": (optional) set flag reduce num slicing layers proporional to selected LoD to FALSE");
-	//options_with_descriptions_vec.emplace("--apply_nurbs_fitting", ": (optional) set flag for curve-fitting to TRUE");
 	options_with_descriptions_vec.emplace("--verbose",             ": (optional) set flag for print-outs to TRUE");
-	//options_with_descriptions_vec.emplace("--apply_alpha_shapes",  ": (optional) set flag for alpha-shaped to TRUE");
 	options_with_descriptions_vec.emplace("--write_stages",        ": (optional) set flag writing out intermediate results to TRUE");
 	options_with_descriptions_vec.emplace("--generate_spirals",    ": (optional) set flag for spiral look to TRUE");
 

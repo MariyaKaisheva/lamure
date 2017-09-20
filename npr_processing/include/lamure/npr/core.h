@@ -46,7 +46,6 @@ namespace core {
                             float eps_factor = 10,
                             bool use_nurbs = true,
                             bool apply_alpha_shapes = true,
-                            bool with_lod_adjustment = true,
                             bool is_verbose = false);
 } //namespace core
 } //namespace npr
