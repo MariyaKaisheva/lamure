@@ -142,7 +142,7 @@ void
         std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
         start_writing_output = std::chrono::system_clock::now();
 
-        if(write_intermediate_results){ //TODO change control variable
+        if(/*write_intermediate_results*/ true){ //TODO change control variable
           io::write_output_obj( obj_filename, line_data, bvh);
         }
         

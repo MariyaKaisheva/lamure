@@ -48,7 +48,13 @@ bool
 
     float const splitting_depth_dependent_sensitivity = 0.35;
 
- 	//std::cout << "Jaccard Index: " << jaccard_index << std::endl;
+    std::cout << "m11 - " <<  m_11 << "\n";
+    std::cout << "m01 - " <<  m_01 << "\n";
+    std::cout << "m10 - " <<  m_10 << "\n";
+
+    jaccard_index = 0.0;
+
+ 	std::cout << "Jaccard Index: " << jaccard_index << std::endl;
   	if(jaccard_index > splitting_depth_dependent_sensitivity){
  		return true; //the 2 binary images are similar => second bin can be removed
  	}else{
@@ -76,6 +82,7 @@ std::vector<bin>
                    bool verbose){
  	
  	std::vector<bin> bins;
+    std::cout << "XXXXXXXXXX Total num points: " << all_surfels.size() << "\n";
  
 
         bool static_binnig = false; 
@@ -99,24 +106,51 @@ std::vector<bin>
             }
         }else{ //dynamic binnig 
                 
-            auto bounding_corners = utils::compute_bounding_corners(all_surfels);
-                
+            auto bounding_corners = utils::compute_bounding_corners(all_surfels); //TODO replacve with bvh bb???
+
+            std::cout << "bb corners: " << bounding_corners.min_x << ", " <<  bounding_corners.min_y << ", " << bounding_corners.min_z << " / "
+                                        << bounding_corners.max_x << ", " <<  bounding_corners.max_y << ", " << bounding_corners.max_z << "\n";    
+
+            /////TEST///
+            float center_x = (bounding_corners.max_x + bounding_corners.min_x) /2.0;
+            float center_y = (bounding_corners.max_y + bounding_corners.min_y) /2.0;
+            float center_z = (bounding_corners.max_z + bounding_corners.min_z) /2.0;
+            scm::math::vec3f bounding_sphere_center(center_x, center_y, center_z);
+            scm::math::vec3f radius_vector = scm::math::vec3f(bounding_corners.max_x - center_x, bounding_corners.max_y - center_y, bounding_corners.max_z - center_z);
+            float sphere_radius = std::sqrt(radius_vector.x * radius_vector.x + radius_vector.y * radius_vector.y + radius_vector.z * radius_vector.z);
+            
             uint grid_resolution = 80; //num cells pro dim for generation of binary_image for bin comparison
 
                 std::list<bin> working_list_of_bins;
+
                 auto bound_value = (fabs(bounding_corners.max_y - bounding_corners.min_y) / max_num_layers) /2.0;
+                #if 0
                 float new_bin_location = bounding_corners.min_y + bound_value;
+
                 for(uint bin_counter = 0; bin_counter < max_num_layers; ++bin_counter){                    
                     working_list_of_bins.emplace_back(all_surfels, bound_value, bound_value, new_bin_location);
-                    working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution);
+                    working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution, bounding_sphere_center, false);
                     new_bin_location += 2.0 * bound_value;
                 }
+
+                #else
+                float angle_increment = 0.0;
+                float const angle_offset = 20.0;
+                while(angle_increment < 360.0){
+                    working_list_of_bins.emplace_back(all_surfels, bound_value, bounding_sphere_center, sphere_radius, angle_increment);
+                    bool radial_slicing = true;
+                    working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution, bounding_sphere_center, radial_slicing);
+
+                    angle_increment += angle_offset;
+                }
+                #endif
 
                 std::list<bin>::iterator it1,it2;
                 it1 = it2 = working_list_of_bins.begin();
 
                 ++it2;//std::advance(it2, 1);
                 bins.push_back(*it1);
+                std::cout << "XXXXXXXXXX Size of first bin: " << it1->content_.size() << "\n";
                 while(it2 != --working_list_of_bins.end()){
                     bool bins_are_similar = evaluate_similarity(*it1, *it2/*, true*/);
                     bool distance_exceeds_max_distance_threshold = evaluate_if_distance_is_too_large(*it1, *it2, max_distance_between_two_neighbouring_bins); 
@@ -124,8 +158,8 @@ std::vector<bin>
                     //keep data if bins are too dissimilar, or if distance between then is NOT too large
                     if(bins_are_similar && (!distance_exceeds_max_distance_threshold)){
 
-                        auto pos_A = it1->pos_along_slicing_axis_;
-                        auto pos_B = it2->pos_along_slicing_axis_;
+                        //auto pos_A = it1->pos_along_slicing_axis_;
+                        //auto pos_B = it2->pos_along_slicing_axis_;
 
                         it2 = working_list_of_bins.erase(it2);
 
@@ -134,11 +168,13 @@ std::vector<bin>
                         ++it1;
                         ++it2;
                         bins.push_back(*it1);
+                        std::cout << "XXXXXXXXXX Size of kept bin: " << it1->content_.size() << "\n";
                         
                     }
                 }
 
                 bins.push_back(*it2);
+                std::cout << "XXXXXXXXXX Size of last bin: " << it2->content_.size() << "\n";
         }
 
     
@@ -149,6 +185,13 @@ std::vector<bin>
     
  	return bins;
 }
+
+/*std::vector<bin>
+generate_bins_via_polar_rotation(std::vector<xyzall_surfel_t> const& all_surfels,
+                                 float rotation_offset_angle,
+                                 bool verbose) {
+    
+}*/
 
 
 } //namespace binning

@@ -320,7 +320,7 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
   return final_spiral_segments_vec;
 }
 
-bool with_detailed_prints = false;  //TODO clean print logic
+bool with_detailed_prints = true;  //TODO clean print logic
 
 void prepare_clusters (std::vector<binning::bin> & bins_vec, 
                        std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
@@ -498,25 +498,27 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   }
 
 
-  //project points y-value to center of bin
-  uint32_t bin_id = 0;
-  for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
 
-    float center_of_bin = bins_vec[bin_id].pos_along_slicing_axis_;
 
-    auto& clusters_in_bin = *clusters_in_bin_ptr;
-    for( auto& cluster : clusters_in_bin) {
+  if(write_intermediate_result_out){ 
+    //project points y-value to center of bin
+    /*uint32_t bin_id = 0;
+    for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
 
-      for( auto& point_in_cluster : cluster) {  
-        point_in_cluster.pos_coordinates_[1] = center_of_bin;
+      float center_of_bin = bins_vec[bin_id].pos_along_slicing_axis_;
+
+      auto& clusters_in_bin = *clusters_in_bin_ptr;
+      for( auto& cluster : clusters_in_bin) {
+
+        for( auto& point_in_cluster : cluster) {  
+          point_in_cluster.pos_coordinates_[1] = center_of_bin;
+        }
       }
-    }
 
 
-    ++bin_id;
-  }
+      ++bin_id;
+    } */
 
-  if(write_intermediate_result_out){      
     io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
                                       avg_min_distance,
                                       all_clusters_per_bin_vector_for_all_bins,

@@ -58,6 +58,7 @@ namespace utils {
 				                    	 distance_vector.z*distance_vector.z);
 				return result;
 			}
+
 		}
 
 
@@ -76,6 +77,8 @@ namespace utils {
 		};
 
 		struct bounding_rect{ //TODO substitute by scm::gl::boxf
+			//bounding_rect(float min_X, float min_Y, float min_Z, float max_X, float max_Y, float max_Z) : min_x(min_X), max_x(max_X), min_y(min_Y), max_y(max_Y), min_z(min_Z), max_z(max_Z) {}
+
 			float min_x;
 			float max_x;
 			float min_y;
