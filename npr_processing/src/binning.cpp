@@ -82,7 +82,7 @@ std::vector<bin>
                    bool verbose){
  	
  	std::vector<bin> bins;
-    std::cout << "XXXXXXXXXX Total num points: " << all_surfels.size() << "\n";
+    //std::cout << "XXXXXXXXXX Total num points: " << all_surfels.size() << "\n";
  
 
         bool static_binnig = false; 
@@ -108,8 +108,6 @@ std::vector<bin>
                 
             auto bounding_corners = utils::compute_bounding_corners(all_surfels); //TODO replacve with bvh bb???
 
-            std::cout << "bb corners: " << bounding_corners.min_x << ", " <<  bounding_corners.min_y << ", " << bounding_corners.min_z << " / "
-                                        << bounding_corners.max_x << ", " <<  bounding_corners.max_y << ", " << bounding_corners.max_z << "\n";    
 
             /////TEST///
             float center_x = (bounding_corners.max_x + bounding_corners.min_x) /2.0;
@@ -135,7 +133,7 @@ std::vector<bin>
 
                 #else
                 float angle_increment = 0.0;
-                float const angle_offset = 20.0;
+                float const angle_offset = 5.0;
                 while(angle_increment < 360.0){
                     working_list_of_bins.emplace_back(all_surfels, bound_value, bounding_sphere_center, sphere_radius, angle_increment);
                     bool radial_slicing = true;
@@ -150,7 +148,7 @@ std::vector<bin>
 
                 ++it2;//std::advance(it2, 1);
                 bins.push_back(*it1);
-                std::cout << "XXXXXXXXXX Size of first bin: " << it1->content_.size() << "\n";
+               // std::cout << "XXXXXXXXXX Size of first bin: " << it1->content_.size() << "\n";
                 while(it2 != --working_list_of_bins.end()){
                     bool bins_are_similar = evaluate_similarity(*it1, *it2/*, true*/);
                     bool distance_exceeds_max_distance_threshold = evaluate_if_distance_is_too_large(*it1, *it2, max_distance_between_two_neighbouring_bins); 
@@ -168,13 +166,13 @@ std::vector<bin>
                         ++it1;
                         ++it2;
                         bins.push_back(*it1);
-                        std::cout << "XXXXXXXXXX Size of kept bin: " << it1->content_.size() << "\n";
+                        //std::cout << "XXXXXXXXXX Size of kept bin: " << it1->content_.size() << "\n";
                         
                     }
                 }
 
                 bins.push_back(*it2);
-                std::cout << "XXXXXXXXXX Size of last bin: " << it2->content_.size() << "\n";
+               // std::cout << "XXXXXXXXXX Size of last bin: " << it2->content_.size() << "\n";
         }
 
     

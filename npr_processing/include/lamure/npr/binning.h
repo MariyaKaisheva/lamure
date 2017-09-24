@@ -130,66 +130,53 @@ namespace binning {
 
 				scm::math::vec3f rotation_orientation(0.0f, 0.0f, 1.0f);
 				scm::math::mat4f rot_mat = scm::math::make_rotation(rotation_offset_angle, rotation_orientation);
-				scm::math::vec4f hom_rot_plane_normal = rot_mat * scm::math::vec4(0.0f, 1.0f, 0.0f, 0.0f);
-				scm::math::vec3f plane_normal     = scm::math::vec3f(hom_rot_plane_normal.x, hom_rot_plane_normal.y, hom_rot_plane_normal.z);
 
-
-				//min and max corners of the 'flat' bounding search region
-				scm::math::vec3f min_corner(plane_origin.x, 
-											plane_origin.y, 
-											plane_origin.z - bounding_sphere_radius);
-
-				scm::math::vec3f max_corner(plane_origin.x + bounding_sphere_radius,
-											plane_origin.y,
-											plane_origin.z + bounding_sphere_radius);
-				bounding_corners_ = std::make_pair(min_corner, max_corner); //store 'flat' values for binary image computation
-
-				//rotate max corner to match the actual orientation of the slicing place associated wtih this bin
-				//but first translate corner to the origin of the local coordinate system for correct rotaion results
 				scm::math::mat4f origin_transl_mat = scm::math::make_translation(-plane_origin.x, 
 																				 -plane_origin.y,
 																				 -plane_origin.z);
-				scm::math::vec4f corner_at_origin = origin_transl_mat * scm::math::vec4f(max_corner, 1.0f);
-				scm::math::vec4f rotated_corner = rot_mat * corner_at_origin; //actual rotation
-				scm::math::vec4f rotated_corner_at_initial_location = scm::math::inverse(origin_transl_mat) * rotated_corner;
-				max_corner = scm::math::vec3f(rotated_corner_at_initial_location.x, rotated_corner_at_initial_location.y, rotated_corner_at_initial_location.z);
+
+				scm::math::mat4f final_plane_rotation_mat = scm::math::inverse(origin_transl_mat) * rot_mat * origin_transl_mat;
+
+				scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(origin_transl_mat) * scm::math::inverse(rot_mat) * origin_transl_mat;
 
 
-				//expand the 'flat' search region to a search box
+				//min and max corners of the 'boxy' bounding search region
+				scm::math::vec3f min_box_corner(plane_origin.x, 
+											plane_origin.y - bounding_sphere_radius * 0.01 , 
+											plane_origin.z - bounding_sphere_radius);
 
-				std::cout << "PLANE NORMAL: " << plane_normal << "\n";
-				std::cout << "bounding sphere_radus: " << bounding_sphere_radius << "\n"; 
-				scm::math::vec3f trans_vec (bounding_sphere_radius * plane_normal * 1.0);
-				scm::math::mat4f translation_mat = scm::math::make_translation(trans_vec);
-				scm::math::vec4f translated_corner = translation_mat * scm::math::vec4f(max_corner, 1.0f);
-				max_corner = scm::math::vec3f(translated_corner.x, translated_corner.y, translated_corner.z); 
+				scm::math::vec3f max_box_corner(plane_origin.x + bounding_sphere_radius,
+											plane_origin.y + bounding_sphere_radius * 0.01 ,
+											plane_origin.z + bounding_sphere_radius);
 
-				
-				scm::math::vec3f trans_vec_for_min_corner (bounding_sphere_radius * ( plane_normal * -1 *  1.0));
-				scm::math::mat4f translation_mat_for_min_corner = scm::math::make_translation(trans_vec_for_min_corner);
-				scm::math::vec4f translated_min_corner = translation_mat_for_min_corner * scm::math::vec4f(min_corner, 1.0f);
-				min_corner = scm::math::vec3f(translated_min_corner.x, translated_min_corner.y, translated_min_corner.z); 
+				bounding_corners_ = std::make_pair(min_box_corner, max_box_corner); //store 'flat' values for binary image computation
 
-				std::cout << "MIN corner (" << min_corner.x << ", " << min_corner.y << ", "  << min_corner.z << ")\n ";
-				std::cout << "MAX corner (" << max_corner.x << ", " << max_corner.y << ", "  << max_corner.z << ")\n ";
-				std::cout << "BS RADIUS: " << bounding_sphere_radius << "\n";
+
 				content_.reserve(input_surfels.size());
 
 
+				std::vector<xyzall_surfel_t> points_in_rotated_plane_space(input_surfels);
+				
+				// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
+				utils::transform_surfels_by_matrix(points_in_rotated_plane_space, point_to_non_AABB_space_mat);
+
 				auto copy_lambda = [&]( xyzall_surfel_t const& surfel) {
-					
-										bool check_x_coord = (surfel.pos_coordinates[0] >= min_corner.x && surfel.pos_coordinates[0] <= max_corner.x);
-										bool check_y_coord = (surfel.pos_coordinates[1] >= min_corner.y && surfel.pos_coordinates[1] <= max_corner.y);
-										bool check_z_coord = (surfel.pos_coordinates[2] >= min_corner.z && surfel.pos_coordinates[2] <= max_corner.z);
-										return (check_x_coord && check_y_coord && check_z_coord);
+					bool check_x_coord = (surfel.pos_coordinates[0] >= min_box_corner.x && surfel.pos_coordinates[0] <= max_box_corner.x);
+					bool check_y_coord = (surfel.pos_coordinates[1] >= min_box_corner.y && surfel.pos_coordinates[1] <= max_box_corner.y);
+					bool check_z_coord = (surfel.pos_coordinates[2] >= min_box_corner.z && surfel.pos_coordinates[2] <= max_box_corner.z);
+					return (check_x_coord && check_y_coord && check_z_coord);
+				};
 
-									};
-
-				std::cout << "BEFORE COPYING: " << input_surfels.size() << "\n";
-		    	auto it = std::copy_if(input_surfels.begin(), input_surfels.end(), content_.begin(), copy_lambda);
+				//std::cout << "BEFORE COPYING: " << points_in_rotated_plane_space.size() << "\n";
+		    	auto it = std::copy_if(points_in_rotated_plane_space.begin(), points_in_rotated_plane_space.end(), content_.begin(), copy_lambda);
 		    	content_.resize(std::distance(content_.begin(), it));
-				std::cout << "AFTER COPYING: " << content_.size() << "\n";
+				//std::cout << "AFTER COPYING: " << content_.size() << "\n";
 
+
+				// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
+				utils::transform_surfels_by_matrix(content_, final_plane_rotation_mat);
+
+				//TODO
 				/*
 		    	//project content
 		    	for(auto & surfel : content_){

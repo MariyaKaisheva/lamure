@@ -295,6 +295,26 @@ namespace utils {
 		}
 	}
 
+	void transform_surfels_by_matrix(std::vector<xyzall_surfel_t>& surfels_to_transform, scm::math::mat4f const& transformation) {
+		#pragma omp parallel for
+		for( size_t point_to_transform_idx = 0; point_to_transform_idx < surfels_to_transform.size(); ++point_to_transform_idx ) {
+
+			auto& current_point_in_rotated_plane_space = surfels_to_transform[point_to_transform_idx];
+
+			scm::math::vec4f original_point_pos = scm::math::vec4f(current_point_in_rotated_plane_space.pos_coordinates[0],
+																   current_point_in_rotated_plane_space.pos_coordinates[1],
+																   current_point_in_rotated_plane_space.pos_coordinates[2],
+																   1.0);
+
+			scm::math::vec4f point_pos_in_non_AABB_space = transformation * original_point_pos;
+
+			current_point_in_rotated_plane_space.pos_coordinates[0] = point_pos_in_non_AABB_space.x;
+			current_point_in_rotated_plane_space.pos_coordinates[1] = point_pos_in_non_AABB_space.y;
+			current_point_in_rotated_plane_space.pos_coordinates[2] = point_pos_in_non_AABB_space.z;
+
+		}
+	}
+
 	void transform(std::vector<line>& line_data_vec, scm::math::mat4f const& transformation_mat) {
 
 	    size_t num_lines_in_vector = line_data_vec.size();
