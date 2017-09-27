@@ -166,6 +166,8 @@ namespace utils {
 
 	void transform_surfels_by_matrix(std::vector<xyzall_surfel_t>& surfels_to_transform, scm::math::mat4f const& transformation);
 
+	void transform_points_by_matrix(std::vector<point>& surfels_to_transform, scm::math::mat4f const& transformation);
+
 	void transform_intermediate_points_to_original_model_orientation(std::vector< std::shared_ptr<std::vector<std::vector<point>>> > & all_points_for_all_bins,
 																	 scm::math::mat4f const& transformation_mat);
 

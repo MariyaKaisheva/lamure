@@ -322,7 +322,7 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
 
 bool with_detailed_prints = true;  //TODO clean print logic
 
-void prepare_clusters (std::vector<binning::bin> & bins_vec, 
+void prepare_clusters (std::vector<binning::bin> const& bins_vec, 
                        std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
                        float eps_factor,
                        uint32_t num_cells_pro_dim,
@@ -358,6 +358,8 @@ void prepare_clusters (std::vector<binning::bin> & bins_vec,
 void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
                                               std::vector< std::shared_ptr<std::vector<clusters_t>> >  & all_alpha_shapes_for_all_bins,
                                               uint32_t degree,
+                                              bool radial_binning,
+                                              scm::math::vec3f bounding_sphere_center,
                                               bool color,
                                               bool is_verbose){
 
@@ -381,6 +383,9 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
 
 
       float cluster_y_coord = current_cluster[0].pos_coordinates_[1];
+      if(radial_binning){
+        cluster_y_coord = bounding_sphere_center.y;
+      }
       uint32_t cluster_size = current_cluster.size();
 
       std::vector<alpha::cgal_point_2> cgal_points(cluster_size);
@@ -450,7 +455,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
   start_binning = std::chrono::system_clock::now();
 
-  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops, max_distance, is_verbose);
+  //TODO value should come from user input
+  bool radial_slicing = true;
+  scm::math::vec3f bounding_sphere_center = scm::math::vec3f(0.0, 0.0, 0.0); //just inial value which will be recomputed in case of radial binning mode
+  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops, radial_slicing, bounding_sphere_center, max_distance, is_verbose);
 
   end_binning = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_binning = end_binning - start_binning;
@@ -527,7 +535,6 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   }
 
 
-
   //alpha-shapes detection
   std::chrono::time_point<std::chrono::system_clock> start_alpha_shaping, end_alpha_shaping;
   start_alpha_shaping = std::chrono::system_clock::now();//start timing
@@ -536,11 +543,28 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   clean_clusters_via_alpha_shape_detection(all_clusters_per_bin_vector_for_all_bins,
                                            all_alpha_shapes_for_all_bins,
                                            degree,
+                                           radial_slicing,
+                                           bounding_sphere_center,
                                            color,
                                            is_verbose);
 
   end_alpha_shaping = std::chrono::system_clock::now();//end timing
-  std::chrono::duration<double> elapsed_seconds_AS_dection_per_cluster = end_alpha_shaping - start_alpha_shaping;
+  std::chrono::duration<double> elapsed_seconds_AS_dection_per_cluster = end_alpha_shaping - start_alpha_shaping; 
+
+
+  //Thansform data points to the original non AABB space
+ for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size() /*bins_vec.size()*/; ++bin_index) {
+    auto const& current_bin = bins_vec[bin_index];
+    auto const& transformation_mat = current_bin.radial_rotation_mat_;
+    auto & vector_of_alpha_shapes_per_bin = all_alpha_shapes_for_all_bins[bin_index];
+    if(vector_of_alpha_shapes_per_bin->size() > 0){
+      for(auto & current_alpha_shape : *vector_of_alpha_shapes_per_bin) {
+        utils::transform_points_by_matrix(current_alpha_shape, transformation_mat);
+      }
+    }
+  }
+
+
 
   if(write_intermediate_result_out){
     io::write_intermediate_result_out(output_base_name + "_ALPHA_SHAPES.pob",

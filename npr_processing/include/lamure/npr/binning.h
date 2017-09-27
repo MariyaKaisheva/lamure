@@ -98,12 +98,6 @@ namespace binning {
 				binary_image_.shrink_to_fit();
 			}
 
-			/*bounding_rect get_bounding_corners(){
-				auto min_corner = bounding_corners_.first;
-				auto max_corner = bounding_corners_.second;
-				return utils::bounding_rect min_max_corner_coordinates(min_corner.x, min_corner.y, min_corner.z, max_corner.x, max_corner.y, max_corner.z);
-			}*/
-
 		public:
 			float pos_along_slicing_axis_;
 			float lower_bound_size_;
@@ -112,6 +106,7 @@ namespace binning {
 			std::vector<uint32_t> binary_image_;
 			uint32_t bin_depth = 0;
 			std::pair<scm::math::vec3f, scm::math::vec3f> bounding_corners_;
+			scm::math::mat4f radial_rotation_mat_;
 
 
 		private:
@@ -136,6 +131,7 @@ namespace binning {
 																				 -plane_origin.z);
 
 				scm::math::mat4f final_plane_rotation_mat = scm::math::inverse(origin_transl_mat) * rot_mat * origin_transl_mat;
+				radial_rotation_mat_ =  final_plane_rotation_mat; //save transformations to recover the original model after feature extraction is done
 
 				scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(origin_transl_mat) * scm::math::inverse(rot_mat) * origin_transl_mat;
 
@@ -167,43 +163,36 @@ namespace binning {
 					return (check_x_coord && check_y_coord && check_z_coord);
 				};
 
-				//std::cout << "BEFORE COPYING: " << points_in_rotated_plane_space.size() << "\n";
 		    	auto it = std::copy_if(points_in_rotated_plane_space.begin(), points_in_rotated_plane_space.end(), content_.begin(), copy_lambda);
 		    	content_.resize(std::distance(content_.begin(), it));
-				//std::cout << "AFTER COPYING: " << content_.size() << "\n";
 
-
-				// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
-				utils::transform_surfels_by_matrix(content_, final_plane_rotation_mat);
-
-				//TODO
-				/*
-		    	//project content
+		    	//project bin content
 		    	for(auto & surfel : content_){
-		    		scm::math::vec3f surfel_original_pos = scm::math::vec3f(surfel.pos_coordinates[0], surfel.pos_coordinates[1], surfel.pos_coordinates[2]);
-		    		//vector between boundig sphere center and current surfel 
-		    		scm::math::vec3f origin_surfel_vec = scm::math::vec3f(surfel_original_pos.x - plane_origin.x,
-		    															  surfel_original_pos.y - plane_origin.y,
-		    															  surfel_original_pos.z - plane_origin.z);
-		    		//compute projection angel 
-		    		scm::math::vec3f normalized_origin_surfel_vec = utils::normalize(origin_surfel_vec);
-		    		scm::math::vec3f slicing_plane_vec = scm::math::vec3f(min_corner.x - plane_origin.x,
-		    															  min_corner.y - plane_origin.y,
-		    															  min_corner.z - plane_origin.z);
-		    		scm::math::vec3f normalized_plane_vec = utils::normalize(slicing_plane_vec);
-		    		float projection_angle =  acos( utils::dot(normalized_origin_surfel_vec, normalized_plane_vec));
 
-		    		//surfel projection
-		    		scm::math::mat4f projection_mat = //scm::math::inverse
-		    			(scm::math::make_rotation(projection_angle, rotation_orientation));
-		    		scm::math::vec4f rotated_origin_surfel_vec = projection_mat * origin_surfel_vec;
+		    		//drop y-coordinate to rough projection onto the slicing plane
+		    		scm::math::vec3f straight_projected_surfel_pos = scm::math::vec3f(surfel.pos_coordinates[0], plane_origin.y, surfel.pos_coordinates[2]);
+		    		scm::math::vec3f sphere_origin_to_straight_projected_surfel_vec =  scm::math::normalize(straight_projected_surfel_pos - plane_origin); //plane_origin = center of rotation
 
-		    		//TODO check if this is correct!!!
-		    		surfel.pos_coordinates[0] = rotated_origin_surfel_vec.x;
-		    		surfel.pos_coordinates[1] = rotated_origin_surfel_vec.y;
-		    		surfel.pos_coordinates[2] = rotated_origin_surfel_vec.z;
+		    		//scale-corection to get correct radial projection
+		    		scm::math::vec3f sphere_origin_to_unprojected_surfel_vec = scm::math::vec3f(surfel.pos_coordinates[0] - plane_origin.x, 
+		    																					surfel.pos_coordinates[1] - plane_origin.y,
+		    																					surfel.pos_coordinates[2] - plane_origin.z);
+
+		    		if(0.0f == surfel.pos_coordinates[0] && 0.0f == surfel.pos_coordinates[1] && 0.0f == surfel.pos_coordinates[2] ) {
+		    			continue;
+		    		}
+
+		    		float scaling_factor = scm::math::length(sphere_origin_to_unprojected_surfel_vec);
+		    		scm::math::vec3f radial_projected_surfel = scaling_factor * sphere_origin_to_straight_projected_surfel_vec + plane_origin;
+
+
+		    		surfel.pos_coordinates[0] = radial_projected_surfel.x;
+		    		surfel.pos_coordinates[1] = radial_projected_surfel.y;
+		    		surfel.pos_coordinates[2] = radial_projected_surfel.z;
 		    	}
-		    	*/	
+
+		    	// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
+				//utils::transform_surfels_by_matrix(content_, final_plane_rotation_mat);
 			}
 	};
 
@@ -225,6 +214,8 @@ namespace binning {
 	std::vector<bin> generate_all_bins(std::vector<xyzall_surfel_t> const& all_surfels, 
 									   float const inital_bin_half_height, 
 									   uint& max_num_loops,
+									   bool radial_slicing,
+									   scm::math::vec3f & bounding_sphere_center,
 									   float max_distance_between_two_neighbouring_bins = -1.0,
 									   bool verbose = false); //TODO remove defaut value after split binning is removed
 } //namespace binning
