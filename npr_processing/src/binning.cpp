@@ -46,15 +46,13 @@ bool
  	}
 
 
-    float const splitting_depth_dependent_sensitivity = 1.75;
-
+    float const splitting_depth_dependent_sensitivity = 0.65;
+    /*
     std::cout << "m11 - " <<  m_11 << "\n";
     std::cout << "m01 - " <<  m_01 << "\n";
     std::cout << "m10 - " <<  m_10 << "\n";
+ 	std::cout << "Jaccard Index: " << jaccard_index << std::endl;*/
 
-    //jaccard_index = 0.0;
-
- 	std::cout << "Jaccard Index: " << jaccard_index << std::endl;
   	if(jaccard_index > splitting_depth_dependent_sensitivity){
  		return true; //the 2 binary images are similar => second bin can be removed
  	}else{
@@ -85,7 +83,7 @@ std::vector<bin>
                    bool verbose){
  	
  	std::vector<bin> bins;
-    //std::cout << "XXXXXXXXXX Total num points: " << all_surfels.size() << "\n";
+
  
 
         bool static_binnig = false; 
@@ -99,9 +97,6 @@ std::vector<bin>
 
             for(uint i = 0; i < max_num_layers; ++i) {
                 float current_y_mean = (current_y_min + current_y_max) / 2.0;
-                /*if(initial_bound_value >= current_y_max - current_y_mean) {
-                  throw  std::runtime_error("density thershold might be too low");
-                } */
 
                 bins.emplace_back(all_surfels, initial_bound_value, initial_bound_value, current_y_mean);
                 current_y_min = current_y_max;
@@ -138,9 +133,9 @@ std::vector<bin>
 
                 } else {
                     float angle_increment = 0.0;
-                    float const angle_offset = 15.0;
+                    float const angle_offset = 10.0;
                     while(angle_increment < 360.0){
-                        working_list_of_bins.emplace_back(all_surfels, bound_value, bounding_sphere_center, sphere_radius, angle_increment);
+                        working_list_of_bins.emplace_back(all_surfels, bound_value, bounding_sphere_center, sphere_radius,angle_offset, angle_increment);
                         working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution, bounding_sphere_center, radial_slicing);
 
                         angle_increment += angle_offset;
@@ -152,16 +147,18 @@ std::vector<bin>
 
                 ++it2;//std::advance(it2, 1);
                 bins.push_back(*it1);
-               // std::cout << "XXXXXXXXXX Size of first bin: " << it1->content_.size() << "\n";
                 while(it2 != --working_list_of_bins.end()){
                     bool bins_are_similar = evaluate_similarity(*it1, *it2/*, true*/);
-                    bool distance_exceeds_max_distance_threshold = evaluate_if_distance_is_too_large(*it1, *it2, max_distance_between_two_neighbouring_bins); 
+
+                    bool distance_exceeds_max_distance_threshold = false;
+                    if(!radial_slicing){
+                        distance_exceeds_max_distance_threshold = evaluate_if_distance_is_too_large(*it1, *it2, max_distance_between_two_neighbouring_bins);
+                    }else{
+                        //TODO
+                    }
                     
                     //keep data if bins are too dissimilar, or if distance between then is NOT too large
                     if(bins_are_similar && (!distance_exceeds_max_distance_threshold)){
-
-                        //auto pos_A = it1->pos_along_slicing_axis_;
-                        //auto pos_B = it2->pos_along_slicing_axis_;
 
                         it2 = working_list_of_bins.erase(it2);
 
@@ -170,13 +167,10 @@ std::vector<bin>
                         ++it1;
                         ++it2;
                         bins.push_back(*it1);
-                        //std::cout << "XXXXXXXXXX Size of kept bin: " << it1->content_.size() << "\n";
-                        
                     }
                 }
 
                 bins.push_back(*it2);
-               // std::cout << "XXXXXXXXXX Size of last bin: " << it2->content_.size() << "\n";
         }
 
     

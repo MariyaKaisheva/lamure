@@ -336,6 +336,7 @@ void prepare_clusters (std::vector<binning::bin> const& bins_vec,
         float avg_min_distance_per_bin = utils::compute_avg_min_distance(current_bin_of_surfels.content_, num_cells_pro_dim, 1, num_cells_pro_dim);
 
         if(0.0f == avg_min_distance_per_bin) {
+          std::cout << "Skipping EMPTY BIN \n"; 
           continue;
         }
 
@@ -553,7 +554,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
 
   //Thansform data points to the original non AABB space
- for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size() /*bins_vec.size()*/; ++bin_index) {
+ for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size() /**/; ++bin_index) {
+    if(bins_vec.size() != all_alpha_shapes_for_all_bins.size()){
+      std::cout << "BACKWARD SLICE TRSNFORMATION MISMACH!\n";
+    }
     auto const& current_bin = bins_vec[bin_index];
     auto const& transformation_mat = current_bin.radial_rotation_mat_;
     auto & vector_of_alpha_shapes_per_bin = all_alpha_shapes_for_all_bins[bin_index];
@@ -616,7 +620,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
   }
 
-  float max_winding_distance = max_distance / 3.0; 
+  //float max_winding_distance = max_distance / 3.0; 
+  float max_winding_distance = 1.0;
   if(use_nurbs && spiral_look){
     line_data.clear();
     std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);

@@ -25,14 +25,16 @@ namespace binning {
 				float range_threshols, 
 				scm::math::vec3f plane_origin,
 				float bounding_sphere_radius,
-				float rotation_offset_angle) :  pos_along_slicing_axis_(plane_origin.y),
-												lower_bound_size_(range_threshols),
-												upper_bound_size_(range_threshols) {
+				float absolute_rotation_offset_angle,
+				float relative_rotation_offset_angle) :  pos_along_slicing_axis_(plane_origin.y),
+														 lower_bound_size_(range_threshols),
+														 upper_bound_size_(range_threshols) {
 
 				generate_single_radial_bin(input_surfels, 
 										   plane_origin,
 										   bounding_sphere_radius,
-										   rotation_offset_angle);
+										   absolute_rotation_offset_angle,
+										   relative_rotation_offset_angle);
 			}
 
 			void evaluate_content_to_binary(bounding_rect const& bounding_corners,
@@ -120,11 +122,12 @@ namespace binning {
 			void generate_single_radial_bin(std::vector<xyzall_surfel_t> const& input_surfels, 
 										    scm::math::vec3f const& plane_origin,
 										    float bounding_sphere_radius,
-										    float rotation_offset_angle) {
+										    float absolute_rotation_offset_angle,
+										    float relative_rotation_offset_angle) {
 
 
 				scm::math::vec3f rotation_orientation(0.0f, 0.0f, 1.0f);
-				scm::math::mat4f rot_mat = scm::math::make_rotation(rotation_offset_angle, rotation_orientation);
+				scm::math::mat4f rot_mat = scm::math::make_rotation(relative_rotation_offset_angle, rotation_orientation);
 
 				scm::math::mat4f origin_transl_mat = scm::math::make_translation(-plane_origin.x, 
 																				 -plane_origin.y,
@@ -136,6 +139,16 @@ namespace binning {
 				scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(origin_transl_mat) * scm::math::inverse(rot_mat) * origin_transl_mat;
 
 
+				content_.reserve(input_surfels.size());
+
+
+				std::vector<xyzall_surfel_t> points_in_rotated_plane_space(input_surfels);
+				
+				// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
+				utils::transform_surfels_by_matrix(points_in_rotated_plane_space, point_to_non_AABB_space_mat);
+
+
+				#if 1//work with PRISM-shaped slicing volume
 				//min and max corners of the 'boxy' bounding search region
 				scm::math::vec3f min_box_corner(plane_origin.x, 
 											plane_origin.y - bounding_sphere_radius * 0.01 , 
@@ -145,16 +158,8 @@ namespace binning {
 											plane_origin.y + bounding_sphere_radius * 0.01 ,
 											plane_origin.z + bounding_sphere_radius);
 
-				bounding_corners_ = std::make_pair(min_box_corner, max_box_corner); //store 'flat' values for binary image computation
-
-
-				content_.reserve(input_surfels.size());
-
-
-				std::vector<xyzall_surfel_t> points_in_rotated_plane_space(input_surfels);
-				
-				// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
-				utils::transform_surfels_by_matrix(points_in_rotated_plane_space, point_to_non_AABB_space_mat);
+				//obsolite?
+				//bounding_corners_ = std::make_pair(min_box_corner, max_box_corner); //store 'flat' values for binary image computation
 
 				auto copy_lambda = [&]( xyzall_surfel_t const& surfel) {
 					bool check_x_coord = (surfel.pos_coordinates[0] >= min_box_corner.x && surfel.pos_coordinates[0] <= max_box_corner.x);
@@ -163,8 +168,78 @@ namespace binning {
 					return (check_x_coord && check_y_coord && check_z_coord);
 				};
 
+				#else //work with PYRAMID-shaped slicing volume
+				//point-in-pyramid test
+				/**pyramid volume is implicitly defined by 4 tringle sides;
+			     **these are further specifed via 3 times 90-deg rotation of a single explicitly defined tringle
+
+			      						*B
+
+										
+			     	*A (plane origin)
+
+
+			     						*C
+			     */
+				scm::math::vec4f vertex_A_hom_coord(plane_origin.x, 
+													plane_origin.y,
+													plane_origin.z,
+													1.0);
+
+				float degree_as_radians = absolute_rotation_offset_angle * 3.14159265359 / 180.0;
+
+				float pyramid_half_base_side = bounding_sphere_radius * tan(degree_as_radians / 2.0);
+
+
+
+				scm::math::vec4f  vertex_B_hom_coord(plane_origin.x + bounding_sphere_radius, 
+										   			 plane_origin.y + pyramid_half_base_side,
+										   			 plane_origin.z + pyramid_half_base_side,
+										   			 1.0);
+
+				scm::math::vec4f  vertex_C_hom_coord(plane_origin.x + bounding_sphere_radius, 
+						   				   			 plane_origin.y + pyramid_half_base_side,
+						   				   			 plane_origin.z - bounding_sphere_radius,
+						   				   			 1.0);
+
+				scm::math::vec4f AB_vec = vertex_B_hom_coord - vertex_A_hom_coord;
+				scm::math::vec4f AC_vec = vertex_C_hom_coord - vertex_A_hom_coord;
+
+
+				std::vector<scm::math::vec4f> pyramid_side_normals_vec; 
+				//TODO change variable names 
+				scm::math::mat4f side_flip_rot_mat = scm::math::make_rotation(180.0f, 1.0f, 0.0f, 0.0f);
+				scm::math::vec4f pyramid_side_normal = scm::math::cross(scm::math::vec3f(AB_vec), scm::math::vec3f(AC_vec) );
+				pyramid_side_normals_vec.push_back(pyramid_side_normal);
+				pyramid_side_normals_vec.push_back(side_flip_rot_mat * pyramid_side_normal);
+				pyramid_side_normals_vec.push_back(scm::math::vec4f(0.0, 0.0, 1.0, 0.0));
+				pyramid_side_normals_vec.push_back(scm::math::vec4f(0.0, 0.0, -1.0, 0.0));
+
+
+				auto copy_lambda = [&]( xyzall_surfel_t const& surfel) {
+					scm::math::vec4f origin_to_surfel_vec = scm::math::vec4f(surfel.pos_coordinates[0] - plane_origin.x, 
+		    																 surfel.pos_coordinates[1] - plane_origin.y,
+		    																 surfel.pos_coordinates[2] - plane_origin.z,
+		    																 0.0);
+
+					for (auto const& side_normal : pyramid_side_normals_vec){
+						float dot_product_side_normal_point_vec = scm::math::dot(scm::math::normalize(scm::math::vec3f(side_normal) ), scm::math::normalize(scm::math::vec3f(origin_to_surfel_vec) ));
+						if (dot_product_side_normal_point_vec > 0.0){
+							return false;
+						}
+					}
+					
+					//bool is_distance_less_than_pyramid_height = surfel.pos_coordinates[0] >= plane_origin.x;
+
+					//return is_distance_less_than_pyramid_height;
+
+					return true;
+				};
+				#endif //switch between 2 types/shpes of  slicing volume 
+
 		    	auto it = std::copy_if(points_in_rotated_plane_space.begin(), points_in_rotated_plane_space.end(), content_.begin(), copy_lambda);
 		    	content_.resize(std::distance(content_.begin(), it));
+		    	std::cout << "BIN CONTENT: " << content_.size() << "\n";
 
 		    	//project bin content
 		    	for(auto & surfel : content_){
@@ -185,15 +260,12 @@ namespace binning {
 		    		float scaling_factor = scm::math::length(sphere_origin_to_unprojected_surfel_vec);
 		    		scm::math::vec3f radial_projected_surfel = scaling_factor * sphere_origin_to_straight_projected_surfel_vec + plane_origin;
 
-
 		    		surfel.pos_coordinates[0] = radial_projected_surfel.x;
 		    		surfel.pos_coordinates[1] = radial_projected_surfel.y;
 		    		surfel.pos_coordinates[2] = radial_projected_surfel.z;
 		    	}
-
-		    	// TRANSFORM points_in_rotated_plane_space BY point_to_non_AABB_space_mat
-				//utils::transform_surfels_by_matrix(content_, final_plane_rotation_mat);
 			}
+
 	};
 
 	struct evaluation_job{
