@@ -148,7 +148,7 @@ namespace binning {
 				utils::transform_surfels_by_matrix(points_in_rotated_plane_space, point_to_non_AABB_space_mat);
 
 
-				#if 1//work with PRISM-shaped slicing volume
+				#if 0//work with PRISM-shaped slicing volume
 				//min and max corners of the 'boxy' bounding search region
 				scm::math::vec3f min_box_corner(plane_origin.x, 
 											plane_origin.y - bounding_sphere_radius * 0.01 , 
@@ -169,18 +169,7 @@ namespace binning {
 				};
 
 				#else //work with PYRAMID-shaped slicing volume
-				//point-in-pyramid test
-				/**pyramid volume is implicitly defined by 4 tringle sides;
-			     **these are further specifed via 3 times 90-deg rotation of a single explicitly defined tringle
 
-			      						*B
-
-										
-			     	*A (plane origin)
-
-
-			     						*C
-			     */
 				scm::math::vec4f vertex_A_hom_coord(plane_origin.x, 
 													plane_origin.y,
 													plane_origin.z,
@@ -212,8 +201,6 @@ namespace binning {
 				scm::math::vec4f pyramid_side_normal = scm::math::cross(scm::math::vec3f(AB_vec), scm::math::vec3f(AC_vec) );
 				pyramid_side_normals_vec.push_back(pyramid_side_normal);
 				pyramid_side_normals_vec.push_back(side_flip_rot_mat * pyramid_side_normal);
-				pyramid_side_normals_vec.push_back(scm::math::vec4f(0.0, 0.0, 1.0, 0.0));
-				pyramid_side_normals_vec.push_back(scm::math::vec4f(0.0, 0.0, -1.0, 0.0));
 
 
 				auto copy_lambda = [&]( xyzall_surfel_t const& surfel) {
@@ -228,10 +215,6 @@ namespace binning {
 							return false;
 						}
 					}
-					
-					//bool is_distance_less_than_pyramid_height = surfel.pos_coordinates[0] >= plane_origin.x;
-
-					//return is_distance_less_than_pyramid_height;
 
 					return true;
 				};
@@ -239,7 +222,7 @@ namespace binning {
 
 		    	auto it = std::copy_if(points_in_rotated_plane_space.begin(), points_in_rotated_plane_space.end(), content_.begin(), copy_lambda);
 		    	content_.resize(std::distance(content_.begin(), it));
-		    	std::cout << "BIN CONTENT: " << content_.size() << "\n";
+		    	//std::cout << "BIN CONTENT: " << content_.size() << "\n";
 
 		    	//project bin content
 		    	for(auto & surfel : content_){

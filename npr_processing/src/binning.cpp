@@ -133,7 +133,7 @@ std::vector<bin>
 
                 } else {
                     float angle_increment = 0.0;
-                    float const angle_offset = 10.0;
+                    float const angle_offset = 5.0;
                     while(angle_increment < 360.0){
                         working_list_of_bins.emplace_back(all_surfels, bound_value, bounding_sphere_center, sphere_radius,angle_offset, angle_increment);
                         working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution, bounding_sphere_center, radial_slicing);

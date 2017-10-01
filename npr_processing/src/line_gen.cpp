@@ -304,11 +304,9 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
 
     control_points_vec.insert(control_points_vec.end(), new_control_points.begin(), new_control_points.end());
 
-    //std::cout << "SIZE OF CONTROL POINTS VEC: " << control_points_vec.size() << "\n";
 
     auto final_spiral_curve = fit_curve(control_points_vec, 3, spiral_look, false);
 
-    //std::cout << "GENERATED FINAL SPIRAL CURVE\n";
     final_spiral_curve.print(std::cout);
 
 
@@ -320,7 +318,7 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, 
   return final_spiral_segments_vec;
 }
 
-bool with_detailed_prints = true;  //TODO clean print logic
+bool with_detailed_prints = false;  //TODO clean print logic
 
 void prepare_clusters (std::vector<binning::bin> const& bins_vec, 
                        std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
@@ -397,7 +395,7 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
 
       //check if the cleaned and ordereed cluster still containes enough elemets for be later used for nurbs fitting 
       if( ordered_cluster.size() <= degree + 1 ) {
-          if(is_verbose /*&& with_detailed_prints*/) {
+          if(is_verbose && with_detailed_prints) {
             std::cout << "cluster with " << ordered_cluster.size() << " points was skipped \n";
           }
           continue;
@@ -490,11 +488,24 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       }
   };
 
-  
-  all_clusters_per_bin_vector_for_all_bins.erase(std::remove_if(all_clusters_per_bin_vector_for_all_bins.begin(), 
-                                                                  all_clusters_per_bin_vector_for_all_bins.end(),
-                                                                  empty_element_remove_lambda),
-                                                  all_clusters_per_bin_vector_for_all_bins.end());
+
+  std::vector<uint32_t> bins_index_to_ignore;
+
+  for(uint32_t bin_index = 0; bin_index < bins_vec.size(); ++bin_index) {
+    auto & current_vector_of_clusters_per_bin =  all_clusters_per_bin_vector_for_all_bins.at(bin_index);
+    if( current_vector_of_clusters_per_bin == nullptr || current_vector_of_clusters_per_bin->empty() ){
+      bins_index_to_ignore.push_back(bin_index);
+      //bins_vec.erase(bins_vec.begin() + bin_index);
+     // all_clusters_per_bin_vector_for_all_bins.erase(all_clusters_per_bin_vector_for_all_bins.begin() + bin_index);
+    }
+  }
+
+  std::reverse(bins_index_to_ignore.begin(), bins_index_to_ignore.end()); //swich order to remove bins with higher index first
+  for(uint32_t bin_index : bins_index_to_ignore) {
+    bins_vec.erase(bins_vec.begin() + bin_index);
+    all_clusters_per_bin_vector_for_all_bins.erase(all_clusters_per_bin_vector_for_all_bins.begin() + bin_index);
+  }
+
 
   if(write_intermediate_result_out){
     bool use_binning_coloring = true;
@@ -509,24 +520,31 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
 
 
+
   if(write_intermediate_result_out){ 
     //project points y-value to center of bin
-    /*uint32_t bin_id = 0;
-    for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
+    if(!radial_slicing){
+      uint32_t bin_id = 0;
+      for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
 
-      float center_of_bin = bins_vec[bin_id].pos_along_slicing_axis_;
+        float center_of_bin = bins_vec[bin_id].pos_along_slicing_axis_;
 
-      auto& clusters_in_bin = *clusters_in_bin_ptr;
-      for( auto& cluster : clusters_in_bin) {
+        auto& clusters_in_bin = *clusters_in_bin_ptr;
+        for( auto& cluster : clusters_in_bin) {
 
-        for( auto& point_in_cluster : cluster) {  
-          point_in_cluster.pos_coordinates_[1] = center_of_bin;
+          for( auto& point_in_cluster : cluster) {  
+            point_in_cluster.pos_coordinates_[1] = center_of_bin;
+          }
         }
+
+
+        ++bin_id;
       }
+    } else{
+      //TODO
 
-
-      ++bin_id;
-    } */
+    }
+ 
 
     io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
                                       avg_min_distance,
@@ -554,7 +572,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
 
   //Thansform data points to the original non AABB space
- for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size() /**/; ++bin_index) {
+ if(radial_slicing){
+   for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size() /**/; ++bin_index) {
     if(bins_vec.size() != all_alpha_shapes_for_all_bins.size()){
       std::cout << "BACKWARD SLICE TRSNFORMATION MISMACH!\n";
     }
@@ -567,6 +586,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       }
     }
   }
+ }
+
 
 
 
@@ -620,8 +641,8 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
   }
 
-  //float max_winding_distance = max_distance / 3.0; 
-  float max_winding_distance = 1.0;
+  float max_winding_distance = max_distance / 3.0; 
+  //float max_winding_distance = 1.0; //TODO needs to be modified for radial slicing
   if(use_nurbs && spiral_look){
     line_data.clear();
     std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);
