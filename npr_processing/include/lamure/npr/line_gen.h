@@ -16,6 +16,19 @@ namespace line_gen {
 
 using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
 
+    struct line_generation_descriptor {
+      float min_distance_ = -1.0;
+      float max_distance_ = -1.0;
+      float out_avg_min_distance_ = -1.0;
+      std::string output_base_name_ = "";
+      scm::math::mat4f transformation_mat_;
+      bool write_intermediate_results_ = false;
+      bool radial_slicing_ = false;
+      float eps_factor_ = 10.0;
+      bool spiral_look_ = false;
+      bool is_verbose_ = false;
+    };
+
     struct line_approximation_job{
         float start_t_;
         float end_t_;
@@ -54,26 +67,13 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
                            bool is_verbose);
 
     void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
-                                                  //std::vector<std::vector< std::shared_ptr<std::vector<point> > > > & all_alpha_shapes_for_all_bins,
                                                   std::vector< std::shared_ptr<std::vector<clusters_t>> >  & all_alpha_shapes_for_all_bins,
                                                   uint32_t degree,
                                                   bool color,
                                                   bool is_verbose);
 
     std::vector<line> generate_lines(std::vector<xyzall_surfel_t>& input_data, 
-                                     float min_distance,
-                                     float max_distance,
-                                     float& out_avg_min_distance,
-                                     std::string output_base_name,
-                                     scm::math::mat4f const& transformation_mat,
-                                     bool write_intermediate_results,
-                                     float eps_factor = 10.0,
-                                     bool use_nurbs = true, 
-                                     bool apply_alpha_shapes = true,
-                                     bool spiral_look = false,
-                                     bool is_verbose = false);
-
-
+                                     line_generation_descriptor& line_gen_desc);
 
 } //namespace line_gen
 } //namespace npr

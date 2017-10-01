@@ -32,7 +32,7 @@ namespace io {
 	//creates formatted output name based on the input parameters
 	std::string create_output_base_name(std::string const& base_name_without_path_and_extension, int32_t bvh_depth, 
 	                                    float rot_angle, scm::math::vec3d const& rot_axis,
-	                                    bool spiral_look, 
+	                                    bool spiral_look, bool radial_slicing,
 	                                    float min_bin_distance, float max_bin_distance, 
 	                                    float DBSCAN_epsilon);
 

@@ -248,10 +248,10 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   auto bottom_curve_y = bottom_curve.evaluate(1.0)[1];
 
   uint32_t windings = std::ceil(std::fabs(top_curve_y - bottom_curve_y) / max_distance);
-  //uint32_t const windings = 1;
-  std::cout << "distance: " << top_curve_y - bottom_curve_y << std::endl;
+
+  /*std::cout << "distance: " << top_curve_y - bottom_curve_y << std::endl;
   std::cout << "max_distance: " << max_distance << std::endl;
-  std::cout << "Num windings: " << windings << std::endl;
+  std::cout << "Num windings: " << windings << std::endl;*/
 
   float sampling_step = (1.0) / num_points_per_winding;
   uint32_t num_blending_points = num_points_per_winding * windings;
@@ -415,14 +415,8 @@ void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::
 
 std::vector<line> 
 generate_lines(std::vector<xyzall_surfel_t>& input_data, 
-               float min_distance, float max_distance,
-               float& out_avg_min_distance,
-               std::string output_base_name,
-               scm::math::mat4f const& transformation_mat,
-               bool write_intermediate_result_out,
-               float eps_factor,
-               bool use_nurbs, bool apply_alpha_shapes,
-               bool spiral_look, bool is_verbose){
+               line_generation_descriptor& line_gen_desc)
+{
 
 	uint32_t degree = 3; //TODO consider changeing this variable to user-defined one
   bool color = true; //TODO make dependent on --write_xyz_points
@@ -431,10 +425,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
   auto model_height = std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
   std::cout <<" Min Y from input data " <<input_data[0].pos_coordinates[1] << " Max Y from input data " << input_data[last_el].pos_coordinates[1] << std::endl;
-  std::cout <<"---> Initial min distance " << min_distance << " +  model_height " << model_height << std::endl;
+  std::cout <<"---> Initial min distance " << line_gen_desc.min_distance_ << " +  model_height " << model_height << std::endl;
 
  
-  uint32_t max_num_line_loops = std::floor(model_height / min_distance);
+  uint32_t max_num_line_loops = std::floor(model_height / line_gen_desc.min_distance_);
 
   //inital global computation for whole model 
   //with size to holding appyimately 1000 data points (assuming uniform point distribution)
@@ -442,7 +436,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   float avg_min_distance = utils::compute_avg_min_distance(input_data, num_cells_pro_dim, num_cells_pro_dim, num_cells_pro_dim);
 
   //write the avg min distance for the calling core function to use it. NOTE: don't use out_avg_min_distance anymore after the next line
-  out_avg_min_distance = avg_min_distance;
+  line_gen_desc.out_avg_min_distance_ = avg_min_distance;
 
   float distance_threshold =  avg_min_distance * 2.0; 
 
@@ -454,10 +448,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
   start_binning = std::chrono::system_clock::now();
 
-  //TODO value should come from user input
-  bool radial_slicing = true;
   scm::math::vec3f bounding_sphere_center = scm::math::vec3f(0.0, 0.0, 0.0); //just inial value which will be recomputed in case of radial binning mode
-  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, max_num_line_loops, radial_slicing, bounding_sphere_center, max_distance, is_verbose);
+  auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, 
+                                             max_num_line_loops, line_gen_desc.radial_slicing_, bounding_sphere_center, 
+                                             line_gen_desc.max_distance_, line_gen_desc.is_verbose_);
 
   end_binning = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_binning = end_binning - start_binning;
@@ -473,21 +467,12 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::vector< std::shared_ptr<std::vector<clusters_t>> > all_clusters_per_bin_vector_for_all_bins(bins_vec.size());
   prepare_clusters(bins_vec, 
                    all_clusters_per_bin_vector_for_all_bins,
-                   eps_factor,
+                   line_gen_desc.eps_factor_,
                    num_cells_pro_dim,
-                   is_verbose);
+                   line_gen_desc.is_verbose_);
 
   end_clustering = std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds_clustering_single_bin = end_clustering - start_clustering;
-
-  auto empty_element_remove_lambda = [](std::shared_ptr<std::vector<clusters_t>> vector_element){
-    if(nullptr != vector_element) {
-      return vector_element->empty();
-    } else {
-      return true;
-      }
-  };
-
 
   std::vector<uint32_t> bins_index_to_ignore;
 
@@ -495,8 +480,6 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     auto & current_vector_of_clusters_per_bin =  all_clusters_per_bin_vector_for_all_bins.at(bin_index);
     if( current_vector_of_clusters_per_bin == nullptr || current_vector_of_clusters_per_bin->empty() ){
       bins_index_to_ignore.push_back(bin_index);
-      //bins_vec.erase(bins_vec.begin() + bin_index);
-     // all_clusters_per_bin_vector_for_all_bins.erase(all_clusters_per_bin_vector_for_all_bins.begin() + bin_index);
     }
   }
 
@@ -507,12 +490,12 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   }
 
 
-  if(write_intermediate_result_out){
+  if(line_gen_desc.write_intermediate_results_){
     bool use_binning_coloring = true;
-    io::write_intermediate_result_out(output_base_name + "_BINNING.pob",
+    io::write_intermediate_result_out(line_gen_desc.output_base_name_ + "_BINNING.pob",
                                       avg_min_distance,
                                       all_clusters_per_bin_vector_for_all_bins,
-                                      transformation_mat,
+                                      line_gen_desc.transformation_mat_,
                                       use_binning_coloring);
     std::cout << "Done with BINNING\n";
   }
@@ -521,9 +504,9 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
 
 
-  if(write_intermediate_result_out){ 
+  if(line_gen_desc.write_intermediate_results_){ 
     //project points y-value to center of bin
-    if(!radial_slicing){
+    if(!line_gen_desc.radial_slicing_){
       uint32_t bin_id = 0;
       for( auto& clusters_in_bin_ptr: all_clusters_per_bin_vector_for_all_bins) {
 
@@ -546,10 +529,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     }
  
 
-    io::write_intermediate_result_out(output_base_name + "_CLUSTERING.pob",
+    io::write_intermediate_result_out(line_gen_desc.output_base_name_ + "_CLUSTERING.pob",
                                       avg_min_distance,
                                       all_clusters_per_bin_vector_for_all_bins,
-                                      transformation_mat);
+                                      line_gen_desc.transformation_mat_);
     std::cout << "Done with CLUSTERING\n";
   }
 
@@ -562,21 +545,17 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   clean_clusters_via_alpha_shape_detection(all_clusters_per_bin_vector_for_all_bins,
                                            all_alpha_shapes_for_all_bins,
                                            degree,
-                                           radial_slicing,
+                                           line_gen_desc.radial_slicing_,
                                            bounding_sphere_center,
                                            color,
-                                           is_verbose);
+                                           line_gen_desc.is_verbose_);
 
   end_alpha_shaping = std::chrono::system_clock::now();//end timing
   std::chrono::duration<double> elapsed_seconds_AS_dection_per_cluster = end_alpha_shaping - start_alpha_shaping; 
 
-
   //Thansform data points to the original non AABB space
- if(radial_slicing){
-   for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size() /**/; ++bin_index) {
-    if(bins_vec.size() != all_alpha_shapes_for_all_bins.size()){
-      std::cout << "BACKWARD SLICE TRSNFORMATION MISMACH!\n";
-    }
+ if(line_gen_desc.radial_slicing_){
+   for (uint32_t bin_index = 0; bin_index < all_alpha_shapes_for_all_bins.size(); ++bin_index) {
     auto const& current_bin = bins_vec[bin_index];
     auto const& transformation_mat = current_bin.radial_rotation_mat_;
     auto & vector_of_alpha_shapes_per_bin = all_alpha_shapes_for_all_bins[bin_index];
@@ -589,13 +568,11 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
  }
 
 
-
-
-  if(write_intermediate_result_out){
-    io::write_intermediate_result_out(output_base_name + "_ALPHA_SHAPES.pob",
+  if(line_gen_desc.write_intermediate_results_){
+    io::write_intermediate_result_out(line_gen_desc.output_base_name_ + "_ALPHA_SHAPES.pob",
                                 avg_min_distance, 
                                 all_alpha_shapes_for_all_bins,
-                                transformation_mat);
+                                line_gen_desc.transformation_mat_);
     std::cout << "Done with ALPHA_SHAPES\n";
   }
 
@@ -614,7 +591,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     nurbs_vec_t guiding_nurbs_per_layer;
     std::vector<std::vector<line>> lines_per_alpha_shape_in_current_bin;
     for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
-      auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, spiral_look, false);
+      auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, line_gen_desc.spiral_look_, false);
       
       lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
       guiding_nurbs_per_layer.push_back(cluster_approximating_curve);
@@ -634,16 +611,15 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     }
   }
 
-  if(is_verbose){
+  if(line_gen_desc.is_verbose_){
     std::cout << "\t --  Time LOG:  -- binning: "                << elapsed_seconds_binning.count()                 << "s\n";
     std::cout << "\t --  Time LOG:  -- clustering: "             << elapsed_seconds_clustering_single_bin.count()   << "s\n";
     std::cout << "\t --  Time LOG:  -- detecting Alpha-shapes: " << elapsed_seconds_AS_dection_per_cluster.count()  << "s\n";
     std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
   }
 
-  float max_winding_distance = max_distance / 3.0; 
-  //float max_winding_distance = 1.0; //TODO needs to be modified for radial slicing
-  if(use_nurbs && spiral_look){
+  float max_winding_distance = line_gen_desc.max_distance_ / 3.0; //TODO check this for radial slicing mode
+  if(line_gen_desc.spiral_look_){
     line_data.clear();
     std::vector<gpucast::math::nurbscurve3d> final_curves_vec = generate_spirals(guiding_nurbs_vec, max_winding_distance);
     bool adaptive = true; 

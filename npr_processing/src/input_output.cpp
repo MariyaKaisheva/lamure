@@ -30,7 +30,7 @@ namespace io {
 
 std::string create_output_base_name(std::string const& base_name_without_path_and_extension, int32_t bvh_depth, 
                                     	   float rot_angle, scm::math::vec3d const& rot_axis,
-                                    	   bool spiral_look, 
+                                    	   bool spiral_look, bool radial_slicing,
                                     	   float min_bin_distance, float max_bin_distance, 
                                     	   float DBSCAN_epsilon )  {
 
@@ -93,7 +93,10 @@ std::string create_output_base_name(std::string const& base_name_without_path_an
         output_base_name += "_max_"      + fixed_precision_max_distance_string;
     }
 
+    output_base_name += "_r"  + std::to_string(radial_slicing);
+
     output_base_name += "_s"  + std::to_string(spiral_look);
+
 
     return output_base_name;
 }
@@ -124,7 +127,7 @@ void parse_float_parameter(int argc, char** argv, float& float_parameter, std::s
 	options_with_descriptions_vec.emplace("-f", 				   ": (REQUIRED) specify .bvh input file");
 	options_with_descriptions_vec.emplace("-t", 				   ": (optional) specify .rot input file that contains rotation for slicing plane");
 	options_with_descriptions_vec.emplace("-d", 				   ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");
-	options_with_descriptions_vec.emplace("-s", 				   ": (optional) specify output stage");
+	options_with_descriptions_vec.emplace("-r", 				   ": (optional) set slicing mode to radial");
 	options_with_descriptions_vec.emplace("-v", 				   ": (optional) set flag for print-outs to TRUE");
 	options_with_descriptions_vec.emplace("--red", 				   ": (optional) set color value (float: 0.0 - 1.0) for red channel of lines");
 	options_with_descriptions_vec.emplace("--green", 			   ": (optional) set color value (float: 0.0 - 1.0) for green channel of lines");

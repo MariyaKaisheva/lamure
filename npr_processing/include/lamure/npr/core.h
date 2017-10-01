@@ -40,12 +40,11 @@ namespace core {
                             std::string output_base_name,
                             float min_distance,
                             float max_distance,
+                            bool radial_slicing = false,
                             float red_channel_line = 1.0,
                             float green_channel_line = 1.0,
                             float blue_channel_line = 1.0,
                             float eps_factor = 10,
-                            bool use_nurbs = true,
-                            bool apply_alpha_shapes = true,
                             bool is_verbose = false);
 } //namespace core
 } //namespace npr

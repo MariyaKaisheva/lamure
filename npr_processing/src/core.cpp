@@ -14,12 +14,11 @@ void
                    std::string output_base_name,
                    float min_distance,
                    float max_distance,
+                   bool radial_slicing,
                    float red_channel_line,
                    float green_channel_line,
                    float blue_channel_line,
                    float eps_factor,
-                   bool use_nurbs,
-                   bool apply_alpha_shapes,
                    bool is_verbose)
     {
 
@@ -87,8 +86,10 @@ void
         std::sort(surfels_vector.begin(), surfels_vector.end(), comparator);
 
         
+        line_gen::line_generation_descriptor line_gen_desc;
+
         //validate input 
-        if(min_distance < 0 ){
+        if(min_distance < 0){
             auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose); //TOFO remove unused bool param
             min_distance = suggested_distance_thresholds.first;
 
@@ -97,28 +98,30 @@ void
         if(max_distance < 0){
             auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose);
             max_distance = suggested_distance_thresholds.second;
-
         }
 
-            if(/*is_verbose*/ true){
-                std::cout << "\t min_distance: " << min_distance << "\n";
-                std::cout << "\t max_distance: " << max_distance << "\n";
-                std::cout << "----------------------------\n";
-            }
+        if(is_verbose){
+            std::cout << "\t min_distance: " << min_distance << "\n";
+            std::cout << "\t max_distance: " << max_distance << "\n";
+            std::cout << "----------------------------\n";
+            std::cout << "EPS: " << eps_factor << "\n";
+        }
 
         float out_avg_min_distance = -1.0f;
+
+        line_gen_desc.min_distance_               = min_distance;
+        line_gen_desc.max_distance_               = max_distance;
+        line_gen_desc.out_avg_min_distance_       = out_avg_min_distance;
+        line_gen_desc.output_base_name_           = output_base_name;
+        line_gen_desc.transformation_mat_         = user_defined_rot_mat;
+        line_gen_desc.write_intermediate_results_ = write_intermediate_results;
+        line_gen_desc.radial_slicing_             = radial_slicing;
+        line_gen_desc.eps_factor_                 = eps_factor;
+        line_gen_desc.spiral_look_                = spiral_look;
+        line_gen_desc.is_verbose_                 = is_verbose;
+        
         auto line_data =  line_gen::generate_lines(surfels_vector,
-                                                   min_distance, max_distance,
-                                                   out_avg_min_distance,
-                                                   output_base_name, //used to write out intermediate stages
-                                                   user_defined_rot_mat,
-                                                   write_intermediate_results,
-                                                   eps_factor,
-                                                   use_nurbs, apply_alpha_shapes,
-                                                   spiral_look, is_verbose);
-
-        std::cout << "!!! EPS: " << eps_factor << "\n"; 
-
+                                                   line_gen_desc);
 
         if(is_verbose) {
             std::cout << "Num generated lines: " << line_data.size() << "\n";
@@ -158,8 +161,6 @@ void
             std::cout << "\t --  Time LOG:  -- rotating model to original position: " << elapsed_seconds_inverse_rotation.count() << "s\n";
             std::cout << "\t --  Time LOG:  -- writing output: " << elapsed_seconds_writing_output.count() << "s\n";
             std::cout << "-----------------------------------\n" << std::endl;
-            std::cout << "NURBS usage: " <<  use_nurbs << std::endl;
-            std::cout << "Alpha-shapes usage: " <<  apply_alpha_shapes << std::endl;
             std::cout << "--------------- ok ----------------\n";
         }
 

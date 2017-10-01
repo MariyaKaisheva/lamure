@@ -89,7 +89,7 @@ int main(int argc, char** argv)
     std::string bvh_filename = std::string(io::get_cmd_option(argv, argv + argc, "-f"));
     std::string ext_bvh = bvh_filename.substr(bvh_filename.size()-3);
     if ((ext_bvh.compare("bvh") != 0) ){ //validate input paramenter
-        std::cout << "please specify a .bvh file as input" << std::endl;
+        std::cout << "Please, specify a .bvh file as input" << std::endl;
         return 0;
     }
 
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
         rot_filename = std::string(io::get_cmd_option(argv, argv + argc, "-t"));
         std::string ext_rot = rot_filename.substr(rot_filename.size()-3);
         if(ext_rot.compare("rot") != 0){ //validate input paramenter
-            std::cout << "Please specify correct .rot file after -t " << std::endl;
+            std::cout << "Please, specify correct .rot file after -t " << std::endl;
             return 0;
         }
         user_defined_rot_mat = io::read_in_transformation_file(rot_filename);
@@ -122,15 +122,22 @@ int main(int argc, char** argv)
     bool is_verbose_option_2 = io::cmd_option_exists(argv, argv + argc, "-v");
     bool is_verbose = is_verbose_option_1 | is_verbose_option_2;
 
-    //bool without_lod_adjustment = io::cmd_option_exists(argv, argv + argc, "--no_reduction");
+    //parse slicing mode
+    bool use_radial_slicing = io::cmd_option_exists(argv, argv + argc, "-r");
 
     //parse bin-distance related parameters (default: estimated later)
     float min_distance = -1.0;
     float max_distance = -1.0;
     io::parse_float_parameter(argc, argv, min_distance, "--min");
-    io::parse_float_parameter(argc, argv, max_distance, "--max");
+    if(use_radial_slicing){
+      float const max_rotational_offset = 10;
+      max_distance = max_rotational_offset;
+    } else {
+      io::parse_float_parameter(argc, argv, max_distance, "--max");
+    }
+    
 
-    //parse DBSCan eps_factor (default: 10)
+    //parse DBSCAN eps_factor (default: 10)
     float eps_factor = 10.0;
     io::parse_float_parameter(argc, argv, eps_factor, "--eps");
 
@@ -143,9 +150,6 @@ int main(int argc, char** argv)
     io::parse_float_parameter(argc, argv, green_channel_value, "--green");
     io::parse_float_parameter(argc, argv, blue_channel_value, "--blue");
 
-
-    bool use_nurbs = !io::cmd_option_exists(argv, argv + argc, "--no_nurbs_fitting");
-    bool apply_alpha_shapes = !io::cmd_option_exists(argv, argv + argc, "--no_alpha_shapes");
     bool spiral_look = io::cmd_option_exists(argv, argv + argc, "--generate_spirals");
     
     //retrieve rotation axis and angle
@@ -160,15 +164,14 @@ int main(int argc, char** argv)
     std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
 
     //retrieve the name for the model creation based on the parameters
-    std::string output_base_name = npr::io::create_output_base_name(bvh_filename_without_path_and_extension, depth, angle, axis, spiral_look, min_distance, max_distance, eps_factor );
+    std::string output_base_name = npr::io::create_output_base_name(bvh_filename_without_path_and_extension, depth, angle, axis, spiral_look, use_radial_slicing, min_distance, max_distance, eps_factor );
 
     //call to the actual line art creation npr-library function
     core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
                             write_intermediate_results, spiral_look,
-                            output_base_name, min_distance, max_distance,
+                            output_base_name, min_distance, max_distance, use_radial_slicing,
                             red_channel_value, green_channel_value, blue_channel_value,
-                            eps_factor, use_nurbs, apply_alpha_shapes, 
-                            is_verbose);
+                            eps_factor, is_verbose);
 
     return 0;
 }

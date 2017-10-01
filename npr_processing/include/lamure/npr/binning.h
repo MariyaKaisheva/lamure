@@ -62,11 +62,9 @@ namespace binning {
 	        		float width_of_bounded_slicing_plane =  utils::compute_distance(bounding_corners_.second, bounding_sphere_center);
 	        		auto cell_width = (width_of_bounded_slicing_plane) / resolution;
 	        		for (auto const& current_surfel : content_){
-	        		  //std::cout << "current_surfel_pos.x " << current_surfel.pos_coordinates[0] << " bounding_corners_MIN.x " << bounding_corners_.first.x  << " bounding_corners_MAX.x " << bounding_corners_.second.x <<  "\n";
-	        		  //std::cout << "cell_width " << cell_width<<  "\n";
+
 	        		  auto x_index = std::min(resolution_minus_one, uint(std::max(0, int( (current_surfel.pos_coordinates[0] - bounding_corners_.first.x) / cell_width)) ) );
 			          auto z_index = std::min(resolution_minus_one, uint(std::max(0, int( (current_surfel.pos_coordinates[2]- bounding_corners_.first.z) / cell_length)) ) );
-			          //std::cout << "x_index " << x_index << " z_index " << z_index <<  "\n";
 			          int64_t cell_index = z_index * resolution + x_index;
 			          ++temp_binary_image[cell_index];// = true;
 	        		}
@@ -222,7 +220,6 @@ namespace binning {
 
 		    	auto it = std::copy_if(points_in_rotated_plane_space.begin(), points_in_rotated_plane_space.end(), content_.begin(), copy_lambda);
 		    	content_.resize(std::distance(content_.begin(), it));
-		    	//std::cout << "BIN CONTENT: " << content_.size() << "\n";
 
 		    	//project bin content
 		    	for(auto & surfel : content_){
