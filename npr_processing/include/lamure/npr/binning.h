@@ -267,6 +267,7 @@ namespace binning {
 									   float const inital_bin_half_height, 
 									   uint& max_num_loops,
 									   bool radial_slicing,
+									   scm::math::vec3f const& bounding_sphere_center_translation_vec,
 									   scm::math::vec3f & bounding_sphere_center,
 									   float max_distance_between_two_neighbouring_bins = -1.0,
 									   bool verbose = false); //TODO remove defaut value after split binning is removed

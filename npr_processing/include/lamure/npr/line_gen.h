@@ -22,6 +22,7 @@ using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
       float out_avg_min_distance_ = -1.0;
       std::string output_base_name_ = "";
       scm::math::mat4f transformation_mat_;
+      scm::math::vec3f bounding_sphere_transl_vec_;
       bool write_intermediate_results_ = false;
       bool radial_slicing_ = false;
       float eps_factor_ = 10.0;

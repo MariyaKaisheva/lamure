@@ -78,6 +78,7 @@ std::vector<bin>
                    float initial_bound_value,
                    uint& max_num_layers,
                    bool radial_slicing,
+                   scm::math::vec3f const& bounding_sphere_center_translation_vec,
                    scm::math::vec3f & bounding_sphere_center,
                    float max_distance_between_two_neighbouring_bins,
                    bool verbose){
@@ -111,11 +112,11 @@ std::vector<bin>
             float center_x = (bounding_corners.max_x + bounding_corners.min_x) /2.0;
             float center_y = (bounding_corners.max_y + bounding_corners.min_y) /2.0;
             float center_z = (bounding_corners.max_z + bounding_corners.min_z) /2.0;
-            bounding_sphere_center.x = center_x;
-            bounding_sphere_center.y = center_y;
-            bounding_sphere_center.z = center_z;
+            bounding_sphere_center = scm::math::vec3f(center_x, center_y, center_z);
             scm::math::vec3f radius_vector = scm::math::vec3f(bounding_corners.max_x - center_x, bounding_corners.max_y - center_y, bounding_corners.max_z - center_z);
             float sphere_radius = std::sqrt(radius_vector.x * radius_vector.x + radius_vector.y * radius_vector.y + radius_vector.z * radius_vector.z);
+            sphere_radius += std::fabs(scm::math::length(bounding_sphere_center - bounding_sphere_center_translation_vec));
+            bounding_sphere_center += bounding_sphere_center_translation_vec;
             /////////// <-
 
             uint grid_resolution = 80; //num cells pro dim for generation of binary_image for bin comparison

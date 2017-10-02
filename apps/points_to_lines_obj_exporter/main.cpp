@@ -166,8 +166,12 @@ int main(int argc, char** argv)
     //retrieve the name for the model creation based on the parameters
     std::string output_base_name = npr::io::create_output_base_name(bvh_filename_without_path_and_extension, depth, angle, axis, spiral_look, use_radial_slicing, min_distance, max_distance, eps_factor );
 
+    scm::math::vec3f translation_components_vec(1.0, 0.0, 0.0);
+
     //call to the actual line art creation npr-library function
-    core::generate_line_art(user_defined_rot_mat, bvh_filename, depth, 
+    core::generate_line_art(user_defined_rot_mat,
+                            translation_components_vec,
+                            bvh_filename, depth, 
                             write_intermediate_results, spiral_look,
                             output_base_name, min_distance, max_distance, use_radial_slicing,
                             red_channel_value, green_channel_value, blue_channel_value,

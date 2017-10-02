@@ -450,7 +450,9 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
   scm::math::vec3f bounding_sphere_center = scm::math::vec3f(0.0, 0.0, 0.0); //just inial value which will be recomputed in case of radial binning mode
   auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, 
-                                             max_num_line_loops, line_gen_desc.radial_slicing_, bounding_sphere_center, 
+                                             max_num_line_loops, line_gen_desc.radial_slicing_,
+                                             line_gen_desc.bounding_sphere_transl_vec_,
+                                             bounding_sphere_center,
                                              line_gen_desc.max_distance_, line_gen_desc.is_verbose_);
 
   end_binning = std::chrono::system_clock::now();

@@ -32,20 +32,21 @@
 
 namespace npr {
 namespace core {
-    void generate_line_art(scm::math::mat4f const& user_defined_rot_mat, 
-                            std::string const& bvh_filename, 
-                            int32_t depth, 
-                            bool write_intermediate_results,
-                            bool spiral_look,
-                            std::string output_base_name,
-                            float min_distance,
-                            float max_distance,
-                            bool radial_slicing = false,
-                            float red_channel_line = 1.0,
-                            float green_channel_line = 1.0,
-                            float blue_channel_line = 1.0,
-                            float eps_factor = 10,
-                            bool is_verbose = false);
+    void generate_line_art(scm::math::mat4f const& user_defined_rot_mat,
+                           scm::math::vec3f const& tranlation_components_vec,
+                           std::string const& bvh_filename, 
+                           int32_t depth, 
+                           bool write_intermediate_results,
+                           bool spiral_look,
+                           std::string output_base_name,
+                           float min_distance,
+                           float max_distance,
+                           bool radial_slicing = false,
+                           float red_channel_line = 1.0,
+                           float green_channel_line = 1.0,
+                           float blue_channel_line = 1.0,
+                           float eps_factor = 10,
+                           bool is_verbose = false);
 } //namespace core
 } //namespace npr
 #endif //CORE_H

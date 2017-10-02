@@ -6,7 +6,8 @@ namespace npr {
 namespace core {
 
 void
- generate_line_art(scm::math::mat4f const& user_defined_rot_mat, 
+ generate_line_art(scm::math::mat4f const& user_defined_rot_mat,
+                   scm::math::vec3f const& tranlation_components_vec, 
                    std::string const& bvh_filename,
                    int32_t depth, 
                    bool write_intermediate_results,
@@ -114,12 +115,13 @@ void
         line_gen_desc.out_avg_min_distance_       = out_avg_min_distance;
         line_gen_desc.output_base_name_           = output_base_name;
         line_gen_desc.transformation_mat_         = user_defined_rot_mat;
+        line_gen_desc.bounding_sphere_transl_vec_ = tranlation_components_vec;
         line_gen_desc.write_intermediate_results_ = write_intermediate_results;
         line_gen_desc.radial_slicing_             = radial_slicing;
         line_gen_desc.eps_factor_                 = eps_factor;
         line_gen_desc.spiral_look_                = spiral_look;
         line_gen_desc.is_verbose_                 = is_verbose;
-        
+
         auto line_data =  line_gen::generate_lines(surfels_vector,
                                                    line_gen_desc);
 
