@@ -90,15 +90,22 @@ void
         line_gen::line_generation_descriptor line_gen_desc;
 
         //validate input 
+        auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector);
         if(min_distance < 0){
-            auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose); //TOFO remove unused bool param
+          if(!radial_slicing){
             min_distance = suggested_distance_thresholds.first;
-
+          } else{
+            min_distance = 5.0; // dgree angular distance between 2 adjacent radially rotated slicing planes 
+          }
         }
 
         if(max_distance < 0){
-            auto const& suggested_distance_thresholds = utils::estimate_binning_densities(surfels_vector, is_verbose);
+          if(!radial_slicing){
             max_distance = suggested_distance_thresholds.second;
+          } else{
+            max_distance = 3 * min_distance; 
+          }
+
         }
 
         if(is_verbose){
@@ -147,7 +154,7 @@ void
         std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
         start_writing_output = std::chrono::system_clock::now();
 
-        if(/*write_intermediate_results*/ true){ //TODO change control variable
+        if(write_intermediate_results || true){ 
           io::write_output_obj( obj_filename, line_data, bvh);
         }
         
@@ -166,7 +173,7 @@ void
             std::cout << "--------------- ok ----------------\n";
         }
 
-        delete in_access;
+        //delete in_access;
         delete bvh;
     }
 

@@ -47,11 +47,7 @@ bool
 
 
     float const splitting_depth_dependent_sensitivity = 0.65;
-    /*
-    std::cout << "m11 - " <<  m_11 << "\n";
-    std::cout << "m01 - " <<  m_01 << "\n";
-    std::cout << "m10 - " <<  m_10 << "\n";
- 	std::cout << "Jaccard Index: " << jaccard_index << std::endl;*/
+
 
   	if(jaccard_index > splitting_depth_dependent_sensitivity){
  		return true; //the 2 binary images are similar => second bin can be removed
@@ -60,17 +56,27 @@ bool
  	}
 }
 
-//function returns TRUE if distance between 2 bins is beyond desired threshold
+//function returns TRUE if distance between 2 bins exceeds desired threshold
 bool evaluate_if_distance_is_too_large(bin const& bin_A, 
                                        bin const& bin_B,
-                                       float max_distance){
+                                       float max_distance,
+                                       bool radial_slicing){
 
-    auto pos_A = bin_A.pos_along_slicing_axis_;
-    auto pos_B = bin_B.pos_along_slicing_axis_;
+    if(!radial_slicing) {
+        float pos_A = bin_A.pos_along_slicing_axis_;
+        float pos_B = bin_B.pos_along_slicing_axis_;
 
-    float epsilon_factor = 1.001; // to mitigate for roundoff errors if max_distance = n * min_distance
-    //std::cout << "!!! Distance between bins: " << std::fabs(pos_A - pos_B) << "; MAX: " << max_distance << "\n";  
-    return std::fabs(pos_A - pos_B) * epsilon_factor >= max_distance; 
+        float epsilon_factor = 1.001; // to mitigate for roundoff errors if max_distance = n * min_distance
+        return std::fabs(pos_A - pos_B) * epsilon_factor >= max_distance;  
+    } else {
+        scm::math::mat4f rot_mat_A = bin_A.radial_rotation_mat_;
+        scm::math::mat4f rot_mat_B = bin_B.radial_rotation_mat_;
+
+        float rot_angle_A = utils::get_rotation_angle(rot_mat_A);
+        float rot_angle_B = utils::get_rotation_angle(rot_mat_B);
+        return std::fabs(rot_angle_A - rot_angle_B) >= max_distance;
+    }
+
 }
 
 std::vector<bin> 
@@ -87,7 +93,7 @@ std::vector<bin>
 
  
 
-        bool static_binnig = false; 
+        bool const static_binnig = false; 
 
         if(static_binnig){
             auto num_elements = all_surfels.size();
@@ -105,19 +111,8 @@ std::vector<bin>
             }
         }else{ //dynamic binnig 
                 
-            npr::bounding_rect bounding_corners = utils::compute_bounding_corners(all_surfels); //TODO replacve with bvh bb???
+            npr::bounding_rect bounding_corners = utils::compute_bounding_corners(all_surfels); //TODO replace with bvh bb???
 
-
-            /////TEST/// -> Should be done anly for radial mode
-            float center_x = (bounding_corners.max_x + bounding_corners.min_x) /2.0;
-            float center_y = (bounding_corners.max_y + bounding_corners.min_y) /2.0;
-            float center_z = (bounding_corners.max_z + bounding_corners.min_z) /2.0;
-            bounding_sphere_center = scm::math::vec3f(center_x, center_y, center_z);
-            scm::math::vec3f radius_vector = scm::math::vec3f(bounding_corners.max_x - center_x, bounding_corners.max_y - center_y, bounding_corners.max_z - center_z);
-            float sphere_radius = std::sqrt(radius_vector.x * radius_vector.x + radius_vector.y * radius_vector.y + radius_vector.z * radius_vector.z);
-            sphere_radius += std::fabs(scm::math::length(bounding_sphere_center - bounding_sphere_center_translation_vec));
-            bounding_sphere_center += bounding_sphere_center_translation_vec;
-            /////////// <-
 
             uint grid_resolution = 80; //num cells pro dim for generation of binary_image for bin comparison
 
@@ -126,15 +121,24 @@ std::vector<bin>
                 auto bound_value = (fabs(bounding_corners.max_y - bounding_corners.min_y) / max_num_layers) /2.0;
                 if (!radial_slicing){
                     float new_bin_location = bounding_corners.min_y + bound_value;
-                    for(uint bin_counter = 0; bin_counter < max_num_layers; ++bin_counter){                    
+                    for(uint bin_counter = 0; bin_counter < max_num_layers; ++bin_counter){
                         working_list_of_bins.emplace_back(all_surfels, bound_value, bound_value, new_bin_location);
                         working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution, bounding_sphere_center, radial_slicing);
                         new_bin_location += 2.0 * bound_value;
                     }
 
                 } else {
+                    float center_x = (bounding_corners.max_x + bounding_corners.min_x) /2.0;
+                    float center_y = (bounding_corners.max_y + bounding_corners.min_y) /2.0;
+                    float center_z = (bounding_corners.max_z + bounding_corners.min_z) /2.0;
+                    bounding_sphere_center = scm::math::vec3f(center_x, center_y, center_z);
+                    scm::math::vec3f radius_vector = scm::math::vec3f(bounding_corners.max_x - center_x, bounding_corners.max_y - center_y, bounding_corners.max_z - center_z);
+                    float sphere_radius = std::sqrt(radius_vector.x * radius_vector.x + radius_vector.y * radius_vector.y + radius_vector.z * radius_vector.z);
+                    sphere_radius += std::fabs(scm::math::length(bounding_sphere_center - bounding_sphere_center_translation_vec));
+                    //!!!!!!!!!!!!!!! CHANGED bounding_sphere_center += bounding_sphere_center_translation_vec;
+                    bounding_sphere_center = bounding_sphere_center_translation_vec;
                     float angle_increment = 0.0;
-                    float const angle_offset = 5.0;
+                    float const angle_offset = 360.0 / max_num_layers;
                     while(angle_increment < 360.0){
                         working_list_of_bins.emplace_back(all_surfels, bound_value, bounding_sphere_center, sphere_radius,angle_offset, angle_increment);
                         working_list_of_bins.back().evaluate_content_to_binary(bounding_corners, grid_resolution, bounding_sphere_center, radial_slicing);
@@ -143,21 +147,18 @@ std::vector<bin>
                     }
                 }
 
+
+
+
                 std::list<bin>::iterator it1,it2;
                 it1 = it2 = working_list_of_bins.begin();
 
-                ++it2;//std::advance(it2, 1);
+                ++it2;
                 bins.push_back(*it1);
                 while(it2 != --working_list_of_bins.end()){
-                    bool bins_are_similar = evaluate_similarity(*it1, *it2/*, true*/);
+                    bool bins_are_similar = evaluate_similarity(*it1, *it2);
+                    bool distance_exceeds_max_distance_threshold = evaluate_if_distance_is_too_large(*it1, *it2, max_distance_between_two_neighbouring_bins, radial_slicing);
 
-                    bool distance_exceeds_max_distance_threshold = false;
-                    if(!radial_slicing){
-                        distance_exceeds_max_distance_threshold = evaluate_if_distance_is_too_large(*it1, *it2, max_distance_between_two_neighbouring_bins);
-                    }else{
-                        //TODO
-                    }
-                    
                     //keep data if bins are too dissimilar, or if distance between then is NOT too large
                     if(bins_are_similar && (!distance_exceeds_max_distance_threshold)){
 
