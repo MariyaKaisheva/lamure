@@ -3,6 +3,7 @@
 
 #include <lamure/types.h>
 
+#include <lamure/npr/nurbscurve.h>
 #include <iostream>
 #include <vector>
 #include <limits>
@@ -33,6 +34,10 @@
 
 		bool operator==(point const& rhs){
 		  return (*this).id_ == rhs.id_;
+		}
+
+		float operator[](int index) const {
+			return pos_coordinates_[index];
 		}
 
 		void set_color(lamure::vec3b const& color_vector) {
@@ -129,8 +134,12 @@ namespace utils {
 	//compute 3D bb of set of input surfels
 	bounding_rect compute_bounding_corners (std::vector<xyzall_surfel_t> const& input_data);
 
+
+	//lamure::vec3f compute_cluster_centroid_position (std::vector<gpucast::math::point3d> const& point_cluster)
+
 	//compute centroid position for set of 3D points
-	lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster);
+	template <typename POINT_T>
+	lamure::vec3f compute_cluster_centroid_position (std::vector<POINT_T> const& point_cluster);
 
 	//compute average line length for set of 3D input lines
 	float compute_global_average_line_length(std::vector<line> const& all_lines);
@@ -138,7 +147,7 @@ namespace utils {
 	//computes dot product of 2 vectors
 	float dot(lamure::vec3f const& vec_A, lamure::vec3f const& vec_B);
 
-	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose);
+	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data);
 	//std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose);
 
 	//find cells intersected by a 3D sphere
@@ -158,6 +167,9 @@ namespace utils {
 	//sort points in ascending order
 	std::vector<point> order_points(std::vector<point> const& cluster_of_points, bool euclidean_distance);
 
+	//extract angle of roataion from given rotation matrix
+	float get_rotation_angle(scm::math::mat4f rot_mat);
+
 	//helper function to check if sufficient candidate cells were found
 	bool test_for_sufficency(std::vector<grid_cell*> const& input_cells);
 
@@ -170,6 +182,10 @@ namespace utils {
 
 	void transform_intermediate_points_to_original_model_orientation(std::vector< std::shared_ptr<std::vector<std::vector<point>>> > & all_points_for_all_bins,
 																	 scm::math::mat4f const& transformation_mat);
+
+	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data);
+
+	std::pair<float, float> estimate_binning_densities(std::string bvh_filename);
 
 
 } //utils

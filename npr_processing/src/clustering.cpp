@@ -127,6 +127,37 @@ create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t 
 }
 
 
+
+//using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
+//using nurbs_t = gpucast::math::nurbscurve3d;
+gpucast::math::nurbscurve3d find_corresponding_cluster_curve(gpucast::math::nurbscurve3d const& current_cluster_curve,
+                                                             std::vector<gpucast::math::nurbscurve3d > const& guiding_nurbs_in_adjacent_bin, 
+                                                             std::vector<bool> & remaining_available_clusters){
+  scm::math::vec3f cluster_centroid = utils::compute_cluster_centroid_position(current_cluster_curve.points());
+  uint32_t num_cluster_curves = guiding_nurbs_in_adjacent_bin.size();
+
+  uint32_t closest_candidate_index = -1;
+  float current_shortest_distance = std::numeric_limits<float>::max();
+
+
+  for(uint32_t cluster_index = 0; cluster_index < num_cluster_curves; ++cluster_index){
+
+    if(remaining_available_clusters[cluster_index]){
+
+      auto& candidate_cluster_curve = guiding_nurbs_in_adjacent_bin[cluster_index];
+      scm::math::vec3f current_centroid_candidate = utils::compute_cluster_centroid_position(candidate_cluster_curve.points());
+      float distance_to_current_candidate = scm::math::length(cluster_centroid - current_centroid_candidate);
+      if(distance_to_current_candidate < current_shortest_distance){
+        closest_candidate_index = cluster_index;
+        current_shortest_distance = distance_to_current_candidate;
+      }
+    }
+  }
+
+  remaining_available_clusters[closest_candidate_index] = false;
+  return guiding_nurbs_in_adjacent_bin[closest_candidate_index];
+}
+
 std::vector<clusters_t>
 create_clusters (bins_t const& all_surfels_per_layer){
    

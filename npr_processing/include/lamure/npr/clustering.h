@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "utils.h"
+#include "nurbscurve.h"
 
 
 
@@ -25,6 +26,9 @@
 							float eps, 
 							uint8_t min_points);
 		std::vector<clusters_t>  create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t min_points);
+		gpucast::math::nurbscurve3d find_corresponding_cluster_curve(gpucast::math::nurbscurve3d const& current_cluster_curve,
+                                                         			 std::vector<gpucast::math::nurbscurve3d > const& guiding_nurbs_in_adjacent_bin, 
+                                                         			 std::vector<bool> & remaining_available_clusters);
 		std::vector<clusters_t>  create_clusters (bins_t const& all_surfels_per_layer);
 		   
     } //namespace clustering

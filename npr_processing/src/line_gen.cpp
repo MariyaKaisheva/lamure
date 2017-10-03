@@ -284,28 +284,52 @@ std::vector<point> blend_between_curves(gpucast::math::nurbscurve3d & top_curve,
   return blended_points; 
 }
 
-nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec, float max_distance){
+nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec,
+                             float max_distance){
 
-  nurbs_vec_t spiral_basis_nurbs_vec;
-  for(auto& guiding_nurbs_per_bin : guiding_nurbs_vec){
-    spiral_basis_nurbs_vec.push_back(guiding_nurbs_per_bin[0]);
+  //nurbs_vec_t spiral_basis_nurbs_vec;
+  std::vector<std::pair<nurbs_t, nurbs_t>> spiral_blending_pairs_vec;
+  for(uint32_t bin_index = 0; bin_index < guiding_nurbs_vec.size() - 1; ++bin_index){
+    auto & guiding_nurbs_in_current_bin = guiding_nurbs_vec[bin_index];
+    auto & guiding_nurbs_in_adjacent_bin = guiding_nurbs_vec[bin_index + 1];
+    uint32_t num_cluster_in_current_bin = guiding_nurbs_in_current_bin.size();
+    uint32_t num_cluster_in_adjacent_bin = guiding_nurbs_in_adjacent_bin.size();
+
+    std::vector<bool> remaining_available_clusters(num_cluster_in_adjacent_bin,true);
+    
+    for(uint32_t cluster_counter = 0; cluster_counter < num_cluster_in_current_bin; ++cluster_counter) {
+        if(num_cluster_in_current_bin <= num_cluster_in_adjacent_bin){
+          auto const& current_cluster_curve = guiding_nurbs_in_current_bin[cluster_counter];
+          auto const corresponding_cluster_curve_from_adjacent_bin = clustering::find_corresponding_cluster_curve(current_cluster_curve, guiding_nurbs_in_adjacent_bin, remaining_available_clusters);
+          spiral_blending_pairs_vec.push_back( std::make_pair(current_cluster_curve, corresponding_cluster_curve_from_adjacent_bin));
+        } else {
+          //TODO
+          continue;
+        }
+    } 
+
   }
-
+    
 
   bool spiral_look = true;
+  uint32_t degree = 3; //TODO make this an input parameter
   nurbs_vec_t final_spiral_segments_vec;
-  for(uint8_t curve_index = 0; curve_index < spiral_basis_nurbs_vec.size() - 1; ++curve_index){
-
+  //for(uint8_t curve_index = 0; curve_index < spiral_basis_nurbs_vec.size() - 1; ++curve_index){
+    for(uint8_t curve_index = 0; curve_index < spiral_blending_pairs_vec.size(); ++curve_index){
     std::vector<point> control_points_vec; 
 
-    auto new_control_points = blend_between_curves(spiral_basis_nurbs_vec[curve_index],
+    /*auto new_control_points = blend_between_curves(spiral_basis_nurbs_vec[curve_index],
                                                    spiral_basis_nurbs_vec[curve_index + 1],
+                                                   max_distance);*/
+
+    auto new_control_points = blend_between_curves(spiral_blending_pairs_vec[curve_index].first,
+                                                   spiral_blending_pairs_vec[curve_index].second,
                                                    max_distance);
 
     control_points_vec.insert(control_points_vec.end(), new_control_points.begin(), new_control_points.end());
 
 
-    auto final_spiral_curve = fit_curve(control_points_vec, 3, spiral_look, false);
+    auto final_spiral_curve = fit_curve(control_points_vec, degree, spiral_look, false);
 
     final_spiral_curve.print(std::cout);
 
@@ -355,7 +379,7 @@ void prepare_clusters (std::vector<binning::bin> const& bins_vec,
 }
 
 void clean_clusters_via_alpha_shape_detection(std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_clusters_per_bin_vector_for_all_slices,
-                                              std::vector< std::shared_ptr<std::vector<clusters_t>> >  & all_alpha_shapes_for_all_bins,
+                                              std::vector< std::shared_ptr<std::vector<clusters_t>> > & all_alpha_shapes_for_all_bins,
                                               uint32_t degree,
                                               bool radial_binning,
                                               scm::math::vec3f bounding_sphere_center,
@@ -427,8 +451,13 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::cout <<" Min Y from input data " <<input_data[0].pos_coordinates[1] << " Max Y from input data " << input_data[last_el].pos_coordinates[1] << std::endl;
   std::cout <<"---> Initial min distance " << line_gen_desc.min_distance_ << " +  model_height " << model_height << std::endl;
 
- 
-  uint32_t max_num_line_loops = std::floor(model_height / line_gen_desc.min_distance_);
+  uint32_t max_num_slicing_planes;
+  if(!line_gen_desc.radial_slicing_){
+    max_num_slicing_planes = std::floor(model_height / line_gen_desc.min_distance_);
+  } else {
+    max_num_slicing_planes = std::floor(360.0 / line_gen_desc.min_distance_);
+  }
+  
 
   //inital global computation for whole model 
   //with size to holding appyimately 1000 data points (assuming uniform point distribution)
@@ -442,15 +471,16 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
 
   std::vector<xyzall_surfel_t> current_bin_of_surfels(input_data.size());
   std::vector<line> line_data;
-  //std::vector<uint32_t> cluster_sizes;
 
   //adaptive binning (distributes input surfels into descrite num. bins and projects them onto 2d plane)
   std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
   start_binning = std::chrono::system_clock::now();
 
+  std::cout << "BEFORE GENERATE ALL BINS [LAMURE]: " << line_gen_desc.bounding_sphere_transl_vec_ << "\n";
+
   scm::math::vec3f bounding_sphere_center = scm::math::vec3f(0.0, 0.0, 0.0); //just inial value which will be recomputed in case of radial binning mode
   auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, 
-                                             max_num_line_loops, line_gen_desc.radial_slicing_,
+                                             max_num_slicing_planes, line_gen_desc.radial_slicing_,
                                              line_gen_desc.bounding_sphere_transl_vec_,
                                              bounding_sphere_center,
                                              line_gen_desc.max_distance_, line_gen_desc.is_verbose_);
@@ -461,8 +491,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::vector<nurbs_vec_t> guiding_nurbs_vec;
 
   
-  //clustering
- 
+  //clustering 
   std::chrono::time_point<std::chrono::system_clock> start_clustering, end_clustering;
   start_clustering = std::chrono::system_clock::now();
 

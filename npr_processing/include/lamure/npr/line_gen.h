@@ -15,6 +15,7 @@ namespace npr {
 namespace line_gen {
 
 using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
+using nurbs_t = gpucast::math::nurbscurve3d;
 
     struct line_generation_descriptor {
       float min_distance_ = -1.0;

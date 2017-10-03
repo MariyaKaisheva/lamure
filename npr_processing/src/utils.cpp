@@ -1,11 +1,18 @@
 #include <lamure/npr/utils.h>
 
+#include <lamure/npr/input_output.h>
+
 #include <lamure/ren/bvh.h>
+#include <lamure/ren/lod_stream.h>
 
 #include <memory>
 
 namespace npr {
 namespace utils {
+
+	template lamure::vec3f compute_cluster_centroid_position (std::vector<gpucast::math::point3d> const& point_cluster);
+	template lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster);
+
 	float compute_avg_min_distance(std::vector<xyzall_surfel_t> const& input_data, uint32_t const num_cells_pro_dim_x, uint32_t const num_cells_pro_dim_y, uint32_t const num_cells_pro_dim_z) {
 		float average_min_distance = 0.0f;
 		float search_radius = 0.0f;
@@ -89,14 +96,15 @@ namespace utils {
 	        return corner_coordinates;
 	}
 
-	lamure::vec3f compute_cluster_centroid_position (std::vector<point> const& point_cluster) {
+	template <typename POINT_T>
+	lamure::vec3f compute_cluster_centroid_position (std::vector<POINT_T> const& point_cluster) {
 	  float average_x = 0.0;
 	  float average_y = 0.0;
 	  float average_z = 0.0;
 	  for(auto const& point : point_cluster){
-	    average_x += point.pos_coordinates_[0];
-	    average_y += point.pos_coordinates_[1];
-	    average_z += point.pos_coordinates_[2];
+	    average_x += point[0];
+	    average_y += point[1];
+	    average_z += point[2];
 	  }
 	  auto number_of_surfels_per_layer = point_cluster.size();
 	  average_x /= number_of_surfels_per_layer;
@@ -281,6 +289,17 @@ namespace utils {
 		return ordered_result;
 	}
 
+	//helper function to extract angle of roataion from given rotation matrix
+	float get_rotation_angle(scm::math::mat4f rot_mat){
+	   scm::math::quat<float> output_quat;
+	   output_quat = scm::math::quat<float>::from_matrix(rot_mat);
+	   float angle; 
+	   scm::math::vec3f axis; 
+	   output_quat.retrieve_axis_angle(angle, axis);
+
+	   return angle;
+	}
+
 	//helper function to check if sufficient candidate cells were found
 	bool test_for_sufficency(std::vector<grid_cell*> const& input_cells) {
 		uint content_counter = 0;
@@ -390,36 +409,8 @@ namespace utils {
 
 	}
 
-	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data, bool is_verbose){
+	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data){
 
-		/*std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
-		scm::math::vec3f upper_bound_coord = bvh->get_bounding_box(0).max_vertex();
-		scm::math::vec3f lower_bound_coord = bvh->get_bounding_box(0).min_vertex();
-
-		scm::math::vec4f homogen_upper_bound_coord{ upper_bound_coord[0], upper_bound_coord[1], upper_bound_coord[2], 1.0f };
-		scm::math::vec4f homogen_lower_bound_coord{ lower_bound_coord[0], lower_bound_coord[1], lower_bound_coord[2], 1.0f };
-
-		homogen_upper_bound_coord = inverse_rotation_mat * homogen_upper_bound_coord;
-		homogen_lower_bound_coord = inverse_rotation_mat * homogen_lower_bound_coord;
-
-		upper_bound_coord = scm::math::vec3f{ homogen_upper_bound_coord[0], homogen_upper_bound_coord[1], homogen_upper_bound_coord[2] };
-		lower_bound_coord = scm::math::vec3f{ homogen_lower_bound_coord[0], homogen_lower_bound_coord[1], homogen_lower_bound_coord[2] };*/
-
-		/*if(is_verbose){
-			std::cout << "Model bounding box corners \n";
-			std::cout << "\t - min: (" << lower_bound_coord.x << ", " << lower_bound_coord.y << ", " << lower_bound_coord.z << ") \n";
-			std::cout << "\t - max: (" << upper_bound_coord.x << ", " << upper_bound_coord.y << ", " << upper_bound_coord.z << ") \n";
-		}*/
-
-		/*float bb_dims[3] {-1.0f, -1.0f, -1.0f};
-		float max_length(0.0f);
-		float min_length(std::numeric_limits<float>::max());
-
-		for (int dim_idx = 0; dim_idx < 3; ++dim_idx) {
-			bb_dims[dim_idx] = std::fabs(upper_bound_coord[dim_idx] - lower_bound_coord[dim_idx]);
-			max_length = std::max(max_length, bb_dims[dim_idx]);
-			min_length = std::min(min_length, bb_dims[dim_idx]);
-		}*/
 		uint32_t last_el = input_data.size() - 1;
 		float slicing_axis_length =  std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
 		float min_distance_between_two_bins = 0.05 * slicing_axis_length;
@@ -427,10 +418,12 @@ namespace utils {
 
 		return std::make_pair(min_distance_between_two_bins, max_distance_between_two_bins);
 	}
-
-	/*std::pair<float, float> estimate_binning_densities(std::string bvh_filename, bool is_verbose){
-		std::shared_ptr<lamure::ren::bvh> bvh = std::make_shared<lamure::ren::bvh>( lamure::ren::bvh(bvh_filename) );
-	}*/
+/*
+	std::pair<float, float> estimate_binning_densities(std::string bvh_filename){
+		auto & survels_vec = io::extract_data_from_fixed_lod(bvh_filename);
+		return estimate_binning_densities(survels_vec);		
+	}
+*/
 
 } //namespace utils
 } //namespace npr
