@@ -323,9 +323,11 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec,
 
   bool spiral_look = true;
   uint32_t degree = 3; //TODO make this an input parameter
-  nurbs_vec_t final_spiral_segments_vec;
+  nurbs_vec_t final_spiral_segments_vec(spiral_blending_pairs_vec.size());
   //for(uint8_t curve_index = 0; curve_index < spiral_basis_nurbs_vec.size() - 1; ++curve_index){
-    for(uint8_t curve_index = 0; curve_index < spiral_blending_pairs_vec.size(); ++curve_index){
+    
+  #pragma omp parallel for
+  for(uint8_t curve_index = 0; curve_index < spiral_blending_pairs_vec.size(); ++curve_index){
     std::vector<point> control_points_vec; 
 
     /*auto new_control_points = blend_between_curves(spiral_basis_nurbs_vec[curve_index],
@@ -343,8 +345,8 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec,
 
     //final_spiral_curve.print(std::cout);
 
-
-    final_spiral_segments_vec.push_back(final_spiral_curve);
+    final_spiral_segments_vec[curve_index] = final_spiral_curve;
+    //final_spiral_segments_vec.push_back(final_spiral_curve);
   }
 
 

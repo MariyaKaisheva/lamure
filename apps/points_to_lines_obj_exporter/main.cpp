@@ -158,6 +158,15 @@ int main(int argc, char** argv)
     std::string bvh_filename_without_path = bvh_filename.substr(bvh_filename.find_last_of("/\\") + 1); 
     std::string bvh_filename_without_path_and_extension = bvh_filename_without_path.substr(0, bvh_filename_without_path.size() - 4 );
 
+
+
+    lamure::ren::bvh* bvh = new lamure::ren::bvh(bvh_filename);
+
+    if(depth > int(bvh->get_depth()) || depth < 0) {
+      depth = bvh->get_depth();
+    }
+    delete bvh;
+
     //retrieve the name for the model creation based on the parameters
     std::string output_base_name = npr::io::create_output_base_name(bvh_filename_without_path_and_extension, depth, angle, axis, spiral_look, use_radial_slicing, min_distance, max_distance, eps_factor );
 

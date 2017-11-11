@@ -122,11 +122,10 @@ void
             std::cout << "EPS: " << eps_factor << "\n";
         }
 
-        float out_avg_min_distance = -1.0f;
 
         line_gen_desc.min_distance_               = min_distance;
         line_gen_desc.max_distance_               = max_distance;
-        line_gen_desc.out_avg_min_distance_       = out_avg_min_distance;
+        line_gen_desc.out_avg_min_distance_       = -1.0f;
         line_gen_desc.output_base_name_           = output_base_name;
         line_gen_desc.transformation_mat_         = user_defined_rot_mat;
         line_gen_desc.bounding_sphere_transl_vec_ = translation_components_vec;
@@ -169,7 +168,7 @@ void
         
 
         //write out lob file for lamure
-        io::write_output_lob(lob_filename, line_data, bvh, out_avg_min_distance, red_channel_line, green_channel_line, blue_channel_line);
+        io::write_output_lob(lob_filename, line_data, bvh, line_gen_desc.out_avg_min_distance_, red_channel_line, green_channel_line, blue_channel_line);
 
         end_writing_output = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds_writing_output = end_writing_output - start_writing_output;

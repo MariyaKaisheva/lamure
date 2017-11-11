@@ -272,10 +272,10 @@ scm::math::mat4f read_in_transformation_file(std::string input_filename){
 
       std::ofstream output_file(output_filename);
 
-	  float thickness = avg_min_distance ;
+      float thickness = avg_min_distance ;
       //consider hidden translation
-
-	  float float_max{std::numeric_limits<float>::max()};
+	std:: cout << "THICKNESS: " << thickness << "\n";
+      float float_max{std::numeric_limits<float>::max()};
       lamure::vec3f previous_end_vertex_position{float_max, float_max, float_max};
       const scm::math::vec3f& translation = bvh->get_translation();
       std::cout << "HIDDEN TRANSLATION " << translation << "\n"; 
