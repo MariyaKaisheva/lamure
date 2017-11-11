@@ -6,8 +6,8 @@ namespace npr {
 namespace core {
 
 void
- generate_line_art(scm::math::mat4f const& user_defined_rot_mat,
-                   scm::math::vec3f const& tranlation_components_vec, 
+ generate_line_art(scm::math::mat4f const user_defined_rot_mat1,
+                   scm::math::vec3f const translation_components_vec1, 
                    std::string const& bvh_filename,
                    int32_t depth, 
                    bool write_intermediate_results,
@@ -22,6 +22,13 @@ void
                    float eps_factor,
                    bool is_verbose)
     {
+
+        scm::math::mat4f const user_defined_rot_mat = user_defined_rot_mat1;
+
+        scm::math::vec4f const translation_components_vec4f = scm::math::inverse(user_defined_rot_mat) * scm::math::vec4f(translation_components_vec1[0], translation_components_vec1[1], translation_components_vec1[2], 1.0);
+        scm::math::vec3f const translation_components_vec = scm::math::vec3f(translation_components_vec4f[0], translation_components_vec4f[1], translation_components_vec4f[2]);
+        //scm::math::vec3f rotation_orientation(0.0f, 1.0f, 0.0f);
+        // scm::math::mat4f user_defined_rot_mat = scm::math::make_rotation(90.0f, rotation_orientation);
 
         lamure::ren::bvh* bvh = new lamure::ren::bvh(bvh_filename);
 
@@ -122,7 +129,7 @@ void
         line_gen_desc.out_avg_min_distance_       = out_avg_min_distance;
         line_gen_desc.output_base_name_           = output_base_name;
         line_gen_desc.transformation_mat_         = user_defined_rot_mat;
-        line_gen_desc.bounding_sphere_transl_vec_ = tranlation_components_vec;
+        line_gen_desc.bounding_sphere_transl_vec_ = translation_components_vec;
         line_gen_desc.write_intermediate_results_ = write_intermediate_results;
         line_gen_desc.radial_slicing_             = radial_slicing;
         line_gen_desc.eps_factor_                 = eps_factor;
@@ -154,7 +161,9 @@ void
         std::chrono::time_point<std::chrono::system_clock> start_writing_output, end_writing_output;
         start_writing_output = std::chrono::system_clock::now();
 
-        if(write_intermediate_results || true){ 
+        std::cout << "FLAG TO WRITE OBJ" << write_intermediate_results << "--\n";
+
+        if(write_intermediate_results){ 
           io::write_output_obj( obj_filename, line_data, bvh);
         }
         

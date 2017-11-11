@@ -32,8 +32,8 @@
 
 namespace npr {
 namespace core {
-    void generate_line_art(scm::math::mat4f const& user_defined_rot_mat,
-                           scm::math::vec3f const& tranlation_components_vec,
+    void generate_line_art(scm::math::mat4f const user_defined_rot_mat,
+                           scm::math::vec3f const tranlation_components_vec,
                            std::string const& bvh_filename, 
                            int32_t depth, 
                            bool write_intermediate_results,

@@ -123,6 +123,7 @@ namespace binning {
 										    float absolute_rotation_offset_angle,
 										    float relative_rotation_offset_angle) {
 
+				std::cout << "LAMURE SAYS THE ORIGIN IS AT: " << plane_origin << "\n";
 
 				scm::math::vec3f rotation_orientation(0.0f, 0.0f, 1.0f);
 				scm::math::mat4f rot_mat = scm::math::make_rotation(relative_rotation_offset_angle, rotation_orientation);
@@ -131,10 +132,23 @@ namespace binning {
 																				 -plane_origin.y,
 																				 -plane_origin.z);
 
+/*
+				scm::math::mat4f final_plane_rotation_mat = scm::math::inverse(origin_transl_mat) * rot_mat * origin_transl_mat;
+				radial_rotation_mat_ =  final_plane_rotation_mat; //save transformations to recover the original model after feature extraction is done
+
+				//scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(origin_transl_mat) * scm::math::inverse(rot_mat) * origin_transl_mat;
+				scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(radial_rotation_mat_);
+
+*/				
+				std::cout << "LAMURE SITE ROTATION MAT: " << rot_mat << "\n";
 				scm::math::mat4f final_plane_rotation_mat = scm::math::inverse(origin_transl_mat) * rot_mat * origin_transl_mat;
 				radial_rotation_mat_ =  final_plane_rotation_mat; //save transformations to recover the original model after feature extraction is done
 
 				scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(origin_transl_mat) * scm::math::inverse(rot_mat) * origin_transl_mat;
+				
+
+				point_to_non_AABB_space_mat = scm::math::inverse(final_plane_rotation_mat);
+				//scm::math::mat4f point_to_non_AABB_space_mat = scm::math::inverse(radial_rotation_mat_);
 
 
 				content_.reserve(input_surfels.size());
@@ -222,7 +236,7 @@ namespace binning {
 		    	content_.resize(std::distance(content_.begin(), it));
 
 		    	//project bin content
-		    	for(auto & surfel : content_){
+		    	for(auto & surfel : content_) {
 
 		    		//drop y-coordinate to rough projection onto the slicing plane
 		    		scm::math::vec3f straight_projected_surfel_pos = scm::math::vec3f(surfel.pos_coordinates[0], plane_origin.y, surfel.pos_coordinates[2]);
@@ -245,6 +259,10 @@ namespace binning {
 		    		surfel.pos_coordinates[2] = radial_projected_surfel.z;
 		    	}
 			}
+
+
+
+
 
 	};
 

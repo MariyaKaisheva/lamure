@@ -278,6 +278,7 @@ scm::math::mat4f read_in_transformation_file(std::string input_filename){
 	  float float_max{std::numeric_limits<float>::max()};
       lamure::vec3f previous_end_vertex_position{float_max, float_max, float_max};
       const scm::math::vec3f& translation = bvh->get_translation();
+      std::cout << "HIDDEN TRANSLATION " << translation << "\n"; 
 
       uint32_t total_line_object_counter = 0;
       if (output_file.is_open()){
@@ -326,7 +327,35 @@ scm::math::mat4f read_in_transformation_file(std::string input_filename){
       }
 
     std::cout << "OUTPUT FILE: " << output_filename << std::endl;
-}
+  }
+
+  std::vector<xyzall_surfel_t> extract_data_from_fixed_lod(std::string bvh_filename,
+                                                           int32_t depth){
+    lamure::ren::bvh* bvh = new lamure::ren::bvh(bvh_filename);
+    std::string lod_filename = bvh_filename.substr(0, bvh_filename.size()-3) + "lod";
+    lamure::ren::lod_stream* in_access = new lamure::ren::lod_stream();
+    in_access->open(lod_filename);
+
+    size_t size_of_node = (uint64_t)bvh->get_primitives_per_node() * sizeof(lamure::ren::dataset::serialized_surfel);
+    lamure::node_t num_leafs = bvh->get_length_of_depth(depth);
+
+    auto total_num_surfels = num_leafs*bvh->get_primitives_per_node();
+    std::vector<xyzall_surfel_t> surfels_vector(total_num_surfels);
+
+    auto num_offset_nodes = std::pow(2, depth) - 1; //only valid for fanfactor 2
+    auto length_in_bytes = num_leafs * size_of_node;
+    in_access->read((char*) &surfels_vector[0], num_offset_nodes * size_of_node, length_in_bytes);
+  
+  
+    //clean data from degenerated padding surfels
+    surfels_vector.erase(std::remove_if(surfels_vector.begin(), 
+                                        surfels_vector.end(),
+                                        [](xyzall_surfel_t s){return s.radius_ <= 0.0;}),
+                         surfels_vector.end());
+    delete in_access;
+    delete bvh; 
+    return surfels_vector;
+  }
 
 }
 }

@@ -136,7 +136,10 @@ std::vector<bin>
                     float sphere_radius = std::sqrt(radius_vector.x * radius_vector.x + radius_vector.y * radius_vector.y + radius_vector.z * radius_vector.z);
                     sphere_radius += std::fabs(scm::math::length(bounding_sphere_center - bounding_sphere_center_translation_vec));
                     //!!!!!!!!!!!!!!! CHANGED bounding_sphere_center += bounding_sphere_center_translation_vec;
-                    bounding_sphere_center = bounding_sphere_center_translation_vec;
+                    //bounding_sphere_center =  ( bounding_sphere_center_translation_vec );
+                    bounding_sphere_center = bounding_sphere_center + ( bounding_sphere_center_translation_vec - bounding_sphere_center );
+                    //bounding_sphere_center += std::fabs(scm::math::length(bounding_sphere_center - bounding_sphere_center_translation_vec));
+
                     float angle_increment = 0.0;
                     float const angle_offset = 360.0 / max_num_layers;
                     while(angle_increment < 360.0){

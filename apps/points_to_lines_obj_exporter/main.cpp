@@ -129,12 +129,7 @@ int main(int argc, char** argv)
     float min_distance = -1.0;
     float max_distance = -1.0;
     io::parse_float_parameter(argc, argv, min_distance, "--min");
-    if(use_radial_slicing){
-      float const max_rotational_offset = 10;
-      max_distance = max_rotational_offset;
-    } else {
-      io::parse_float_parameter(argc, argv, max_distance, "--max");
-    }
+    io::parse_float_parameter(argc, argv, max_distance, "--max");
     
 
     //parse DBSCAN eps_factor (default: 10)
@@ -166,7 +161,7 @@ int main(int argc, char** argv)
     //retrieve the name for the model creation based on the parameters
     std::string output_base_name = npr::io::create_output_base_name(bvh_filename_without_path_and_extension, depth, angle, axis, spiral_look, use_radial_slicing, min_distance, max_distance, eps_factor );
 
-    scm::math::vec3f translation_components_vec(1.0, 0.0, 0.0);
+    scm::math::vec3f translation_components_vec(0.0, 0.0, 0.0);
 
     //call to the actual line art creation npr-library function
     core::generate_line_art(user_defined_rot_mat,

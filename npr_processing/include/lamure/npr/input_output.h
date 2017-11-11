@@ -5,6 +5,8 @@
 #include <memory>
 
 #include <lamure/ren/bvh.h>
+#include <lamure/ren/lod_stream.h>
+#include <lamure/ren/dataset.h>
 #include <lamure/npr/binning.h>
 #include <lamure/npr/clustering.h>
 #include <lamure/npr/color_hash_map.h>
@@ -67,6 +69,8 @@ namespace io {
 
 	//writes a *.lob file with the final result that adheres to the *.lob format to render line objects in guacamole
 	void write_output_lob(std::string output_filename, std::vector<line> const& line_data, lamure::ren::bvh* bvh, float avg_min_distance, float r = 1.0, float g = 1.0, float b = 1.0);
+
+	std::vector<xyzall_surfel_t> extract_data_from_fixed_lod(std::string bvh_filename, int32_t depth);
 
 } //namespace io
 } //namespace npr

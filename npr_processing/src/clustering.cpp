@@ -130,7 +130,7 @@ create_DBSCAN_clusters (bins_t const& all_surfels_per_layer, float eps, uint8_t 
 
 //using nurbs_vec_t = std::vector<gpucast::math::nurbscurve3d>;
 //using nurbs_t = gpucast::math::nurbscurve3d;
-gpucast::math::nurbscurve3d find_corresponding_cluster_curve(gpucast::math::nurbscurve3d const& current_cluster_curve,
+uint32_t find_corresponding_cluster_curve(gpucast::math::nurbscurve3d const& current_cluster_curve,
                                                              std::vector<gpucast::math::nurbscurve3d > const& guiding_nurbs_in_adjacent_bin, 
                                                              std::vector<bool> & remaining_available_clusters){
   scm::math::vec3f cluster_centroid = utils::compute_cluster_centroid_position(current_cluster_curve.points());
@@ -155,7 +155,7 @@ gpucast::math::nurbscurve3d find_corresponding_cluster_curve(gpucast::math::nurb
   }
 
   remaining_available_clusters[closest_candidate_index] = false;
-  return guiding_nurbs_in_adjacent_bin[closest_candidate_index];
+  return closest_candidate_index;
 }
 
 std::vector<clusters_t>

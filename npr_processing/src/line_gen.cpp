@@ -296,15 +296,25 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec,
     uint32_t num_cluster_in_adjacent_bin = guiding_nurbs_in_adjacent_bin.size();
 
     std::vector<bool> remaining_available_clusters(num_cluster_in_adjacent_bin,true);
-    
+
     for(uint32_t cluster_counter = 0; cluster_counter < num_cluster_in_current_bin; ++cluster_counter) {
+
+        auto const& current_cluster_curve = guiding_nurbs_in_current_bin[cluster_counter];
+        uint32_t index_of_corresponding_curve = clustering::find_corresponding_cluster_curve(current_cluster_curve, 
+                                                                                             guiding_nurbs_in_adjacent_bin,
+                                                                                             remaining_available_clusters);
+        auto const corresponding_cluster_curve_from_adjacent_bin = guiding_nurbs_in_adjacent_bin[index_of_corresponding_curve];
+
         if(num_cluster_in_current_bin <= num_cluster_in_adjacent_bin){
-          auto const& current_cluster_curve = guiding_nurbs_in_current_bin[cluster_counter];
-          auto const corresponding_cluster_curve_from_adjacent_bin = clustering::find_corresponding_cluster_curve(current_cluster_curve, guiding_nurbs_in_adjacent_bin, remaining_available_clusters);
+          
           spiral_blending_pairs_vec.push_back( std::make_pair(current_cluster_curve, corresponding_cluster_curve_from_adjacent_bin));
         } else {
-          //TODO
-          continue;
+          bool candidate_is_close = true; //TODO: additional test (e.g overlapping area) can improve connectivity to 
+          if(candidate_is_close){
+            spiral_blending_pairs_vec.push_back( std::make_pair(current_cluster_curve, corresponding_cluster_curve_from_adjacent_bin));
+            remaining_available_clusters[index_of_corresponding_curve] = true;
+          }
+
         }
     } 
 
@@ -331,7 +341,7 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec,
 
     auto final_spiral_curve = fit_curve(control_points_vec, degree, spiral_look, false);
 
-    final_spiral_curve.print(std::cout);
+    //final_spiral_curve.print(std::cout);
 
 
     final_spiral_segments_vec.push_back(final_spiral_curve);
@@ -358,7 +368,7 @@ void prepare_clusters (std::vector<binning::bin> const& bins_vec,
         float avg_min_distance_per_bin = utils::compute_avg_min_distance(current_bin_of_surfels.content_, num_cells_pro_dim, 1, num_cells_pro_dim);
 
         if(0.0f == avg_min_distance_per_bin) {
-          std::cout << "Skipping EMPTY BIN \n"; 
+          if(is_verbose){std::cout << "Skipping EMPTY BIN \n";}
           continue;
         }
 
@@ -462,7 +472,13 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   //inital global computation for whole model 
   //with size to holding appyimately 1000 data points (assuming uniform point distribution)
   uint32_t num_cells_pro_dim =  std::ceil(std::cbrt(input_data.size() / 1000)); 
+
+
+  std::chrono::time_point<std::chrono::system_clock> start_avg_min_distance_est, end_avg_min_distance_est;
+  start_avg_min_distance_est = std::chrono::system_clock::now();
   float avg_min_distance = utils::compute_avg_min_distance(input_data, num_cells_pro_dim, num_cells_pro_dim, num_cells_pro_dim);
+  end_avg_min_distance_est = std::chrono::system_clock::now();
+  std::chrono::duration<double> elapsed_seconds_avg_min_distance_est = end_avg_min_distance_est - start_avg_min_distance_est;
 
   //write the avg min distance for the calling core function to use it. NOTE: don't use out_avg_min_distance anymore after the next line
   line_gen_desc.out_avg_min_distance_ = avg_min_distance;
@@ -643,6 +659,7 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   }
 
   if(line_gen_desc.is_verbose_){
+    std::cout << "\t --  Time LOG:  -- avg min dist estimation: "<< elapsed_seconds_avg_min_distance_est.count()    << "s\n";
     std::cout << "\t --  Time LOG:  -- binning: "                << elapsed_seconds_binning.count()                 << "s\n";
     std::cout << "\t --  Time LOG:  -- clustering: "             << elapsed_seconds_clustering_single_bin.count()   << "s\n";
     std::cout << "\t --  Time LOG:  -- detecting Alpha-shapes: " << elapsed_seconds_AS_dection_per_cluster.count()  << "s\n";
