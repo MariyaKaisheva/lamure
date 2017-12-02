@@ -124,6 +124,7 @@ void parse_float_parameter(int argc, char** argv, float& float_parameter, std::s
 
  void prepare_options_with_descriptions(std::map<std::string, std::string>& options_with_descriptions_vec){
 	//TODO ubdate the --no... flags
+	options_with_descriptions_vec.emplace("-j",                                ": (optional) num threads to be used");
 	options_with_descriptions_vec.emplace("-f", 				   ": (REQUIRED) specify .bvh input file");
 	options_with_descriptions_vec.emplace("-t", 				   ": (optional) specify .rot input file that contains rotation for slicing plane");
 	options_with_descriptions_vec.emplace("-d", 				   ": (optional) specify depth to extract; default value is the maximal depth, i.e. leaf level");

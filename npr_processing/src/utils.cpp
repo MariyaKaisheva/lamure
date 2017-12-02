@@ -411,19 +411,30 @@ namespace utils {
 
 	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data){
 
-		uint32_t last_el = input_data.size() - 1;
-		float slicing_axis_length =  std::fabs(input_data[0].pos_coordinates[1] - input_data[last_el].pos_coordinates[1]);
+		float min_coordinate = std::numeric_limits<float>::max();
+		float max_coordinate = std::numeric_limits<float>::lowest();
+
+		for(auto const& point : input_data) {
+
+			if(point.radius_ <= 0.0) {
+				continue;
+			}
+			float y_coord = point.pos_coordinates[1];
+			min_coordinate = std::min(y_coord, min_coordinate);
+			max_coordinate = std::max(y_coord, max_coordinate);
+		}
+		float slicing_axis_length =  max_coordinate - min_coordinate;
 		float min_distance_between_two_bins = 0.05 * slicing_axis_length;
 		float max_distance_between_two_bins = 0.1 * slicing_axis_length; 
 
 		return std::make_pair(min_distance_between_two_bins, max_distance_between_two_bins);
 	}
-/*
-	std::pair<float, float> estimate_binning_densities(std::string bvh_filename){
-		auto & survels_vec = io::extract_data_from_fixed_lod(bvh_filename);
+
+	std::pair<float, float> estimate_binning_densities(std::string bvh_filename, int lod_depth_to_estimate = 4){
+		auto survels_vec = io::extract_data_from_fixed_lod(bvh_filename, lod_depth_to_estimate);
 		return estimate_binning_densities(survels_vec);		
 	}
-*/
+
 
 } //namespace utils
 } //namespace npr

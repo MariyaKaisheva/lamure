@@ -185,7 +185,7 @@ namespace utils {
 
 	std::pair<float, float> estimate_binning_densities(std::vector<xyzall_surfel_t>& input_data);
 
-	std::pair<float, float> estimate_binning_densities(std::string bvh_filename);
+	std::pair<float, float> estimate_binning_densities(std::string bvh_filename, int lod_depth_to_estimate);
 
 
 } //utils
