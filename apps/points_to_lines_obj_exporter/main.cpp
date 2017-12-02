@@ -6,6 +6,7 @@
 // http://www.uni-weimar.de/medien/vr
 #include <lamure/npr/core.h>
 #include <random>
+#include <omp.h>
 
 using namespace npr;
 
@@ -112,6 +113,17 @@ int main(int argc, char** argv)
     int32_t depth = -1;
     if(io::cmd_option_exists(argv, argv+argc, "-d")){
       depth = atoi(io::get_cmd_option(argv, argv+argc, "-d"));
+    }
+
+    //num used threads
+    int32_t num_threads = -1;
+    if(io::cmd_option_exists(argv, argv+argc, "-j")){
+      num_threads = atoi(io::get_cmd_option(argv, argv+argc, "-j"));
+    }
+
+    // dont set num threads, if they where not specified, otherwise the application runs single threaded
+    if(num_threads > 0) {
+    	omp_set_num_threads(num_threads);
     }
 
     //parse intermediate stage enabling

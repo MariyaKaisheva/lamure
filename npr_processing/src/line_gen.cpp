@@ -126,6 +126,10 @@ gpucast::math::nurbscurve3d fit_curve(std::vector<point> const& ordered_points, 
 
 std::vector<line> evaluate_curve(gpucast::math::nurbscurve3d & nurbs_curve, bool dynamic_sampling_step) {
   
+  if(0 == nurbs_curve.knots().size()) {
+    return std::vector<line>();
+  }
+  
   nurbs_curve.normalize_knotvector();
   float last_knot_value = 1.0; 
   //sample the curve inside the knot span
@@ -297,9 +301,18 @@ nurbs_vec_t generate_spirals(std::vector<nurbs_vec_t> const& guiding_nurbs_vec,
 
     std::vector<bool> remaining_available_clusters(num_cluster_in_adjacent_bin,true);
 
+
+
     for(uint32_t cluster_counter = 0; cluster_counter < num_cluster_in_current_bin; ++cluster_counter) {
 
         auto const& current_cluster_curve = guiding_nurbs_in_current_bin[cluster_counter];
+
+        bool zeros = std::all_of(remaining_available_clusters.begin(), remaining_available_clusters.end(), [](bool i) { return i==false; });
+
+        if(zeros) {
+          std::cout << "WAAAAAAAH THIS IS BAD!\n";
+          break;
+        }
         uint32_t index_of_corresponding_curve = clustering::find_corresponding_cluster_curve(current_cluster_curve, 
                                                                                              guiding_nurbs_in_adjacent_bin,
                                                                                              remaining_available_clusters);
@@ -494,7 +507,6 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
   std::chrono::time_point<std::chrono::system_clock> start_binning, end_binning;
   start_binning = std::chrono::system_clock::now();
 
-  std::cout << "BEFORE GENERATE ALL BINS [LAMURE]: " << line_gen_desc.bounding_sphere_transl_vec_ << "\n";
 
   scm::math::vec3f bounding_sphere_center = scm::math::vec3f(0.0, 0.0, 0.0); //just inial value which will be recomputed in case of radial binning mode
   auto bins_vec = binning::generate_all_bins(input_data, distance_threshold, 
@@ -642,7 +654,12 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     for(clusters_t& current_alpha_shaped_cluster : *all_alpha_shapes_in_current_bin_vec ){
       auto cluster_approximating_curve = fit_curve(current_alpha_shaped_cluster, degree, line_gen_desc.spiral_look_, false);
       
-      lines_per_alpha_shape_in_current_bin.push_back(evaluate_curve(cluster_approximating_curve, true));
+
+      auto evaluated_curve_lines = evaluate_curve(cluster_approximating_curve, true);
+
+      if( 0 != evaluated_curve_lines.size() ) {
+        lines_per_alpha_shape_in_current_bin.push_back(evaluated_curve_lines);
+      }
       guiding_nurbs_per_layer.push_back(cluster_approximating_curve);
     }
 
@@ -660,13 +677,10 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
     }
   }
 
-  if(line_gen_desc.is_verbose_){
-    std::cout << "\t --  Time LOG:  -- avg min dist estimation: "<< elapsed_seconds_avg_min_distance_est.count()    << "s\n";
-    std::cout << "\t --  Time LOG:  -- binning: "                << elapsed_seconds_binning.count()                 << "s\n";
-    std::cout << "\t --  Time LOG:  -- clustering: "             << elapsed_seconds_clustering_single_bin.count()   << "s\n";
-    std::cout << "\t --  Time LOG:  -- detecting Alpha-shapes: " << elapsed_seconds_AS_dection_per_cluster.count()  << "s\n";
-    std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
-  }
+
+  //generate spirals timing
+  std::chrono::time_point<std::chrono::system_clock> start_spiral_generation, end_spiral_generation;
+  start_spiral_generation = std::chrono::system_clock::now();//start timing
 
   float max_winding_distance = line_gen_desc.max_distance_ / 3.0; //TODO check this for radial slicing mode
   if(line_gen_desc.spiral_look_){
@@ -678,6 +692,19 @@ generate_lines(std::vector<xyzall_surfel_t>& input_data,
       line_data.insert(std::end(line_data), std::begin(line_data_from_sampled_curve), std::end(line_data_from_sampled_curve));
     }
   }
+  
+  end_spiral_generation = std::chrono::system_clock::now();//end timing
+  std::chrono::duration<double> elapsed_seconds_spiral_generation = end_spiral_generation - start_spiral_generation;
+
+  if(line_gen_desc.is_verbose_){
+    std::cout << "\t --  Time LOG:  -- avg min dist estimation: "<< elapsed_seconds_avg_min_distance_est.count()    << "s\n";
+    std::cout << "\t --  Time LOG:  -- binning: "                << elapsed_seconds_binning.count()                 << "s\n";
+    std::cout << "\t --  Time LOG:  -- clustering: "             << elapsed_seconds_clustering_single_bin.count()   << "s\n";
+    std::cout << "\t --  Time LOG:  -- detecting Alpha-shapes: " << elapsed_seconds_AS_dection_per_cluster.count()  << "s\n";
+    std::cout << "\t --  Time LOG:  -- nurbs fitting: "          << elapsed_seconds_nurbs_fitting.count()           << "s\n";
+    std::cout << "\t --  Time LOG:  -- spiral generation: "      << (line_gen_desc.spiral_look_ ? elapsed_seconds_spiral_generation.count() : 0) << "s\n";
+  }
+
 
   return line_data;
 }

@@ -6,8 +6,8 @@ namespace npr {
 namespace core {
 
 void
- generate_line_art(scm::math::mat4f const user_defined_rot_mat1,
-                   scm::math::vec3f const translation_components_vec1, 
+ generate_line_art(scm::math::mat4f const& user_defined_rot_mat_in,
+                   scm::math::vec3f const& translation_components_vec_in, 
                    std::string const& bvh_filename,
                    int32_t depth, 
                    bool write_intermediate_results,
@@ -23,9 +23,9 @@ void
                    bool is_verbose)
     {
 
-        scm::math::mat4f const user_defined_rot_mat = user_defined_rot_mat1;
+        scm::math::mat4f const user_defined_rot_mat = user_defined_rot_mat_in;
 
-        scm::math::vec4f const translation_components_vec4f = scm::math::inverse(user_defined_rot_mat) * scm::math::vec4f(translation_components_vec1[0], translation_components_vec1[1], translation_components_vec1[2], 1.0);
+        scm::math::vec4f const translation_components_vec4f = scm::math::inverse(user_defined_rot_mat) * scm::math::vec4f(translation_components_vec_in[0], translation_components_vec_in[1], translation_components_vec_in[2], 1.0);
         scm::math::vec3f const translation_components_vec = scm::math::vec3f(translation_components_vec4f[0], translation_components_vec4f[1], translation_components_vec4f[2]);
         //scm::math::vec3f rotation_orientation(0.0f, 1.0f, 0.0f);
         // scm::math::mat4f user_defined_rot_mat = scm::math::make_rotation(90.0f, rotation_orientation);

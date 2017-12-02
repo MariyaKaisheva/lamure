@@ -142,6 +142,10 @@ uint32_t find_corresponding_cluster_curve(gpucast::math::nurbscurve3d const& cur
 
   for(uint32_t cluster_index = 0; cluster_index < num_cluster_curves; ++cluster_index){
 
+    if( remaining_available_clusters.size() <= cluster_index ) {
+      std::cout << "ACCESS 1: " << remaining_available_clusters.size() << "; " << cluster_index << "\n";
+    }
+
     if(remaining_available_clusters[cluster_index]){
 
       auto& candidate_cluster_curve = guiding_nurbs_in_adjacent_bin[cluster_index];
@@ -153,6 +157,10 @@ uint32_t find_corresponding_cluster_curve(gpucast::math::nurbscurve3d const& cur
       }
     }
   }
+
+      if( remaining_available_clusters.size() <= closest_candidate_index ) {
+      std::cout << "ACCESS 2: " << remaining_available_clusters.size() << "; " << closest_candidate_index << "\n";
+    }
 
   remaining_available_clusters[closest_candidate_index] = false;
   return closest_candidate_index;
